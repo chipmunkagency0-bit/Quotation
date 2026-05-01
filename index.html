@@ -20,6 +20,8 @@ nav{background:var(--sf);border-bottom:1px solid var(--bd);padding:0 20px;displa
 .nt:hover{background:var(--sf2);color:var(--tx)}
 .nt.active{background:var(--ac);color:#000;font-weight:600}
 .nt.admin-only{display:none}
+.xbtn{background:none;border:none;cursor:pointer;color:var(--mu);font-size:13px;padding:3px;border-radius:4px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.xbtn:hover{background:rgba(255,107,107,.2);color:var(--ac3)}
 body.is-admin .nt.admin-only{display:inline-block}
 .nav-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
 .admin-chip{font-size:10px;color:var(--mu);padding:4px 10px;border:1px solid var(--bd);border-radius:20px;cursor:pointer;transition:all .15s}
@@ -667,17 +669,17 @@ function init() {
 // ================================================================
 // NAVIGATION
 // ================================================================
-function goPage(name) {
+function goPage(pageName) {
   document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
   document.querySelectorAll('.nt').forEach(function(t) { t.classList.remove('active'); });
-  var pg = document.getElementById('page-' + name);
+  var pg = document.getElementById('page-' + pageName);
   if (pg) pg.classList.add('active');
-  var bt = document.querySelector('[data-page="' + name + '"]');
+  var bt = document.querySelector('[data-page="' + pageName + '"]');
   if (bt) bt.classList.add('active');
 
-  if (name === 'database')  { renderFolders(); renderDB(); }
-  if (name === 'history')   { renderHist(); if (getScriptUrl()) api('history').then(function(r){ if(r&&r.ok) { lsSet(LS_HIST, r.history); renderHist(); } }); }
-  if (name === 'analytics') renderAnalytics();
+  if (pageName === 'database')  { renderFolders(); renderDB(); }
+  if (pageName === 'history')   { renderHist(); if (getScriptUrl()) api('history').then(function(r){ if(r&&r.ok) { lsSet(LS_HIST, r.history); renderHist(); } }); }
+  if (pageName === 'analytics') renderAnalytics();
 }
 
 // ================================================================
@@ -765,7 +767,7 @@ function addRow(data, isGhost) {
     '<td class="cr"><input type="text" class="ri" readonly placeholder="0.00"></td>' +
     '<td class="ct"><input type="number" class="ti" value="18" min="0" max="100" oninput="calc(' + id + ')"></td>' +
     '<td class="ca"><input type="text" class="ami" readonly placeholder="0.00"></td>' +
-    '<td class="cX">' + (isGhost ? '' : '<button style="background:none;border:none;cursor:pointer;color:var(--mu);font-size:13px;padding:3px;border-radius:4px;width:24px;height:24px;display:flex;align-items:center;justify-content:center" onmouseenter="this.style.background='rgba(255,107,107,.2)';this.style.color='var(--ac3)'" onmouseleave="this.style.background='';this.style.color='var(--mu)'" onclick="delRow(' + id + ')">✕</button>') + '</td>';
+    '<td class="cX">' + (isGhost ? '' : '<button class="xbtn" onclick="delRow(' + id + ')">✕</button>') + '</td>';
   tbody.appendChild(tr);
   calc(id);
   return tr;
@@ -785,7 +787,7 @@ function activateGhost(id) {
   inp.removeAttribute('readonly');
   inp.placeholder = 'Type name or code…';
   var del = tr.querySelector('.cX');
-  del.innerHTML = '<button style="background:none;border:none;cursor:pointer;color:var(--mu);font-size:13px;padding:3px;border-radius:4px;width:24px;height:24px;display:flex;align-items:center;justify-content:center" onmouseenter="this.style.background='rgba(255,107,107,.2)';this.style.color='var(--ac3)'" onmouseleave="this.style.background='';this.style.color='var(--mu)'" onclick="delRow(' + id + ')">✕</button>';
+  del.innerHTML = '<button class="xbtn" onclick="delRow(' + id + ')">✕</button>';
   updateSNs();
   inp.focus();
   ensureGhost();
@@ -1124,11 +1126,11 @@ function renderFolders() {
   var row = document.getElementById('frow');
   if (!row) return;
   row.innerHTML = '';
-  function mk(label, icon, name, cnt) {
+  function mk(label, icon, folderName, cnt) {
     var d = document.createElement('div');
-    d.className = 'fcard' + (curFolder === name ? ' on' : '');
+    d.className = 'fcard' + (curFolder === folderName ? ' on' : '');
     d.innerHTML = '<span style="font-size:15px">' + icon + '</span><span>' + X(label) + '</span><span class="fcnt">' + cnt + '</span>';
-    d.onclick = function() { curFolder = name; renderFolders(); renderDB(); };
+    d.onclick = function() { curFolder = folderName; renderFolders(); renderDB(); };
     return d;
   }
   row.appendChild(mk('All Items', '📂', 'all', DB.length));
@@ -1193,11 +1195,11 @@ function renderDB() {
     var fO = folders.map(function(f) { return '<option value="' + X(f) + '"' + (d.folder === f ? ' selected' : '') + '>' + X(f === 'all' ? 'All Items' : f) + '</option>'; }).join('');
     return '<tr>' +
       '<td style="color:var(--mu);font-size:11px;text-align:center">' + (i+1) + '</td>' +
-      '<td><input type="text" value="' + X(d.name||'') + '" onchange="upd(' + d.id + ','name',this.value)"></td>' +
-      '<td><input type="text" value="' + X(d.code||'') + '" onchange="upd(' + d.id + ','code',this.value)"></td>' +
-      '<td><input type="number" value="' + (d.price||'') + '" onchange="upd(' + d.id + ','price',parseFloat(this.value)||null)"></td>' +
-      '<td><input type="text" value="' + X(d.brand||'') + '" onchange="upd(' + d.id + ','brand',this.value)"></td>' +
-      '<td><select onchange="upd(' + d.id + ','folder',this.value)">' + fO + '</select></td>' +
+      '<td><input type="text" value="' + X(d.name||'') + '" onchange="upd(' + d.id + ',\"name\",this.value)"></td>' +
+      '<td><input type="text" value="' + X(d.code||'') + '" onchange="upd(' + d.id + ',\"code\",this.value)"></td>' +
+      '<td><input type="number" value="' + (d.price||'') + '" onchange="upd(' + d.id + ',\"price\",parseFloat(this.value)||null)"></td>' +
+      '<td><input type="text" value="' + X(d.brand||'') + '" onchange="upd(' + d.id + ',\"brand\",this.value)"></td>' +
+      '<td><select onchange="upd(' + d.id + ',\"folder\",this.value)">' + fO + '</select></td>' +
       '<td><button style="background:none;border:none;cursor:pointer;color:var(--mu);font-size:12px" onclick="delItem(' + d.id + ')">✕</button></td>' +
     '</tr>';
   }).join('') + (items.length > 400 ? '<tr><td colspan="7" style="text-align:center;color:var(--mu);padding:10px">Showing 400 of ' + items.length + '. Use search to narrow.</td></tr>' : '');
@@ -1293,15 +1295,7 @@ async function parseDBPDF(file) {
       'Handles multi-pole, multi-colour, complex tables.<br>' +
       '<span style="color:var(--ac)">May take 15–40s for large catalogues…</span>', 30);
 
-    var prompt = 'Extract ALL product entries from this electrical price list PDF into a JSON array.
-
-RULES:
-1. MULTI-COLUMN TABLES: Each row may have multiple Reference+Price pairs (e.g. 1P Ref, 1P MRP, 2P Ref, 2P MRP). Create ONE entry per non-empty Ref+Price pair.
-2. MULTI-COLOUR: Columns like "Ref White, MRP White, Ref Grey, MRP Grey" → one entry per colour, append colour to name.
-3. RCCB: combine current+sensitivity in name e.g. "25A 30mA RCCB 2P".
-4. Use section heading as brand. Skip rows where Reference is "-" or blank.
-5. Return ONLY a raw JSON array. No markdown. No explanation.
-Format: [{"name":"...","code":"...","price":number_or_null,"brand":"..."}]';
+    var prompt = 'Extract ALL product entries from this electrical price list PDF into a JSON array.\n\nRULES:\n1. MULTI-COLUMN TABLES: Each row may have multiple Reference+Price pairs (e.g. 1P Ref, 1P MRP, 2P Ref, 2P MRP). Create ONE entry per non-empty Ref+Price pair.\n2. MULTI-COLOUR: Columns like Ref White, MRP White, Ref Grey, MRP Grey - one entry per colour, append colour to name.\n3. RCCB: combine current+sensitivity in name e.g. 25A 30mA RCCB 2P.\n4. Use section heading as brand. Skip rows where Reference is blank.\n5. Return ONLY a raw JSON array. No markdown. No explanation.\nFormat: [{name:...,code:...,price:number_or_null,brand:...}]';
 
     var resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + key, {
       method: 'POST',
@@ -1316,10 +1310,7 @@ Format: [{"name":"...","code":"...","price":number_or_null,"brand":"..."}]';
     var data = await resp.json();
     var txt = ((data.candidates || [])[0] || {}).content;
     txt = (txt && txt.parts ? txt.parts.map(function(p) { return p.text || ''; }).join('') : '').trim();
-    txt = txt.replace(/^```json[
-]*/i, '').replace(/^```[
-]*/i, '').replace(/[
-]*```\s*$/, '').trim();
+    txt = txt.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```\s*$/, '').trim();
     var extracted;
     try { extracted = JSON.parse(txt); } catch(e) {
       var m = txt.match(/\[\s*\{[\s\S]*\}\s*\]/);
@@ -1431,9 +1422,9 @@ function handleQuoteFile(e) {
 }
 
 async function readQuoteFile(file) {
-  var name = file.name.toLowerCase();
+  var fname = file.name.toLowerCase();
   var rows = [];
-  if (name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv')) {
+  if (fname.endsWith('.xlsx') || fname.endsWith('.xls') || fname.endsWith('.csv')) {
     var buf = await file.arrayBuffer();
     var wb  = XLSX.read(new Uint8Array(buf), { type: 'array' });
     var ws  = wb.Sheets[wb.SheetNames[0]];

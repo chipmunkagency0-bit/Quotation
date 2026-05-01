@@ -1,0 +1,1474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ME Quotation System</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
+:root{--bg:#0d0f14;--sf:#13161e;--sf2:#1a1e28;--bd:#252933;--ac:#e8c547;--ac2:#4a9eff;--ac3:#ff6b6b;--tx:#e8eaf0;--mu:#6b7280;--ok:#4ade80;--r:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"DM Mono",monospace;background:var(--bg);color:var(--tx);min-height:100vh;font-size:13px}
+
+/* NAV */
+nav{background:var(--sf);border-bottom:1px solid var(--bd);padding:0 20px;display:flex;align-items:center;height:54px;position:sticky;top:0;z-index:200;gap:0}
+.logo{font-family:"Syne",sans-serif;font-weight:800;font-size:17px;color:var(--ac);margin-right:28px;flex-shrink:0;text-decoration:none}
+.logo span{color:var(--tx)}
+.ntabs{display:flex;gap:2px;flex:1}
+.nt{padding:7px 16px;border:none;background:none;color:var(--mu);font-family:"DM Mono",monospace;font-size:12px;cursor:pointer;border-radius:6px;transition:all .15s}
+.nt:hover{background:var(--sf2);color:var(--tx)}
+.nt.active{background:var(--ac);color:#000;font-weight:600}
+.nt.admin-only{display:none}
+body.is-admin .nt.admin-only{display:inline-block}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.admin-chip{font-size:10px;color:var(--mu);padding:4px 10px;border:1px solid var(--bd);border-radius:20px;cursor:pointer;transition:all .15s}
+.admin-chip:hover{border-color:var(--ac);color:var(--ac)}
+.admin-chip.on{background:rgba(232,197,71,.12);border-color:var(--ac);color:var(--ac)}
+
+/* PAGES */
+.page{display:none;padding:22px;max-width:1280px;margin:0 auto}
+.page.active{display:block}
+.ptitle{font-family:"Syne",sans-serif;font-size:21px;font-weight:700;margin-bottom:5px}
+.psub{color:var(--mu);font-size:12px;margin-bottom:22px}
+
+/* CARDS */
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:18px;margin-bottom:18px}
+.ctitle{font-family:"Syne",sans-serif;font-size:11px;font-weight:700;color:var(--ac);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px}
+
+/* FORM FIELDS */
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px}
+.fl label{display:block;color:var(--mu);font-size:10px;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
+.fl input,.fl select{width:100%;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;padding:7px 11px;color:var(--tx);font-family:"DM Mono",monospace;font-size:12px;outline:none;transition:border-color .15s}
+.fl input:focus,.fl select:focus{border-color:var(--ac)}
+.fl select option{background:var(--sf2)}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border-radius:7px;border:none;cursor:pointer;font-family:"DM Mono",monospace;font-size:12px;font-weight:500;transition:all .15s;white-space:nowrap}
+.btn-p{background:var(--ac);color:#000}.btn-p:hover{background:#f5d050;transform:translateY(-1px)}
+.btn-g{background:var(--sf2);color:var(--tx);border:1px solid var(--bd)}.btn-g:hover{border-color:var(--ac);color:var(--ac)}
+.btn-d{background:rgba(255,107,107,.12);color:var(--ac3);border:1px solid rgba(255,107,107,.25)}.btn-d:hover{background:rgba(255,107,107,.25)}
+.btn-sm{padding:5px 10px;font-size:11px}
+.arow{display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap}
+
+/* QUOTE TABLE */
+.twrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead th{background:var(--sf2);color:var(--mu);font-size:10px;text-transform:uppercase;letter-spacing:.7px;padding:9px 8px;text-align:left;border-bottom:1px solid var(--bd);white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--bd);transition:opacity .2s}
+tbody tr:hover td{background:rgba(255,255,255,.015)}
+tbody tr.ghost{opacity:.35;cursor:pointer}
+tbody tr.ghost:hover{opacity:.6}
+tbody tr.ghost td input{pointer-events:none}
+tbody td{padding:4px 5px;vertical-align:middle}
+td input,td select{width:100%;background:transparent;border:1px solid transparent;border-radius:4px;padding:5px 7px;color:var(--tx);font-family:"DM Mono",monospace;font-size:12px;outline:none;transition:all .15s}
+td input:focus{background:var(--sf2);border-color:var(--ac)}
+td input[readonly]{color:var(--mu)}
+td input[readonly]:focus{border-color:transparent;background:transparent}
+.csn{width:32px;text-align:center;color:var(--mu);font-size:11px}
+.cn{min-width:220px}
+.cc{width:100px}.cq{width:58px}.cp{width:85px}.cd{width:62px}.cr{width:85px}.ct{width:50px}.ca{width:95px}.cX{width:28px}
+
+/* AUTOCOMPLETE */
+.acw{position:relative}
+.acd{position:absolute;top:100%;left:0;min-width:320px;background:#1c2030;border:1px solid var(--ac);border-radius:7px;max-height:320px;overflow-y:auto;z-index:9000;box-shadow:0 8px 28px rgba(0,0,0,.6);display:none}
+.aci{padding:8px 11px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--bd);display:flex;flex-direction:column;gap:2px}
+.aci:last-child{border-bottom:none}
+.aci:hover,.aci.hi{background:var(--ac);color:#000}
+.aci:hover .acs,.aci.hi .acs{color:#444}
+.acn{font-weight:600}
+.acs{font-size:10px;color:var(--mu);display:flex;gap:8px;align-items:center}
+.acfol{font-size:10px;color:var(--ac2);background:rgba(74,158,255,.12);border-radius:3px;padding:1px 5px}
+
+/* TOTALS */
+.tgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px;margin-top:14px}
+.tbox{background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:13px 15px;text-align:center}
+.tbox .tl{font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px}
+.tbox .tv{font-family:"Syne",sans-serif;font-size:19px;font-weight:700}
+.tbox.hi{border-color:var(--ac)}.tbox.hi .tv{color:var(--ac)}
+.tbox.ta .tv{color:var(--ac3)}.tbox.tf .tv{color:var(--ok)}
+
+/* HISTORY CARDS */
+.hcard{background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:13px 15px;margin-bottom:9px;display:flex;align-items:center;gap:13px;transition:border-color .15s}
+.hcard:hover{border-color:var(--ac)}
+.hm{flex:1;min-width:0}
+.ht{font-family:"Syne",sans-serif;font-size:13px;font-weight:600;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hs{font-size:11px;color:var(--mu)}
+.hbs{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap}
+.hb{border-radius:20px;padding:2px 7px;font-size:10px;border:1px solid}
+.hb.y{background:rgba(232,197,71,.1);border-color:rgba(232,197,71,.25);color:var(--ac)}
+.hb.b{background:rgba(74,158,255,.1);border-color:rgba(74,158,255,.25);color:var(--ac2)}
+.hb.g{background:rgba(74,222,128,.1);border-color:rgba(74,222,128,.25);color:var(--ok)}
+.hax{display:flex;gap:6px;flex-shrink:0}
+
+/* ANALYTICS */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.kpi{background:var(--sf);border:1px solid var(--bd);border-radius:9px;padding:15px 18px}
+.kl{font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px}
+.kv{font-family:"Syne",sans-serif;font-size:22px;font-weight:700;color:var(--ac)}
+.ks{font-size:10px;color:var(--mu);margin-top:2px}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.br{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.bl{font-size:11px;width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tx)}
+.bt{flex:1;background:var(--sf2);border-radius:4px;height:20px;overflow:hidden}
+.bf{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:7px;font-size:10px;font-weight:600;color:#000;min-width:4px}
+.tlrow{display:flex;align-items:flex-end;gap:4px;height:100px}
+.tlcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.tlbar{width:100%;background:var(--ac);border-radius:3px 3px 0 0;min-height:4px}
+.tllb{font-size:9px;color:var(--mu)}
+
+/* DATABASE */
+.frow{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:13px}
+.fcard{background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:9px 13px;cursor:pointer;display:flex;align-items:center;gap:7px;font-size:12px;transition:all .15s}
+.fcard:hover,.fcard.on{border-color:var(--ac);background:rgba(232,197,71,.07);color:var(--ac)}
+.fcnt{font-size:10px;color:var(--mu);margin-left:auto}
+.fcard.on .fcnt{color:var(--ac)}
+.nfb{background:none;border:1px dashed var(--bd);border-radius:8px;padding:9px 13px;cursor:pointer;color:var(--mu);font-family:"DM Mono",monospace;font-size:12px;display:flex;align-items:center;gap:7px;transition:all .15s}
+.nfb:hover{border-color:var(--ac);color:var(--ac)}
+
+/* DROP ZONE */
+.dz{border:2px dashed var(--bd);border-radius:var(--r);padding:36px;text-align:center;cursor:pointer;transition:all .2s}
+.dz:hover,.dz.drag{border-color:var(--ac);background:rgba(232,197,71,.03)}
+.dz .di{font-size:32px;margin-bottom:8px}
+.dz .dt{font-family:"Syne",sans-serif;font-size:14px;margin-bottom:4px}
+.dz .ds{color:var(--mu);font-size:11px}
+
+/* DB TABLE */
+.dbc{display:flex;gap:8px;align-items:center;margin-bottom:13px;flex-wrap:wrap}
+.si{background:var(--sf2);border:1px solid var(--bd);border-radius:6px;padding:7px 11px;color:var(--tx);font-family:"DM Mono",monospace;font-size:12px;outline:none;flex:1;min-width:150px}
+.si:focus{border-color:var(--ac)}
+.fs{background:var(--sf2);border:1px solid var(--bd);border-radius:6px;padding:7px 11px;color:var(--tx);font-family:"DM Mono",monospace;font-size:12px;outline:none;cursor:pointer}
+.dbw{max-height:440px;overflow-y:auto}
+.dbt{width:100%;border-collapse:collapse}
+.dbt thead{position:sticky;top:0}
+.dbt thead th{background:var(--sf2);padding:8px 10px;font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.7px;text-align:left;border-bottom:1px solid var(--bd)}
+.dbt tbody tr{border-bottom:1px solid rgba(255,255,255,.04)}
+.dbt tbody tr:hover td{background:rgba(255,255,255,.03)}
+.dbt tbody td{padding:5px 10px;font-size:12px}
+.dbt td input{background:transparent;border:1px solid transparent;padding:3px 6px;color:var(--tx);font-family:"DM Mono",monospace;font-size:12px;outline:none;width:100%;border-radius:4px}
+.dbt td input:focus{background:var(--sf2);border-color:var(--ac)}
+.dbt td select{background:var(--sf2);border:1px solid var(--bd);color:var(--tx);font-family:"DM Mono",monospace;font-size:11px;padding:3px 6px;border-radius:4px;outline:none;width:100%}
+.bdg{display:inline-block;background:rgba(74,158,255,.12);color:var(--ac2);border:1px solid rgba(74,158,255,.22);border-radius:20px;padding:2px 7px;font-size:10px}
+
+/* PARSE PREVIEW */
+.pprev{background:var(--sf2);border:1px solid var(--bd);border-radius:var(--r);padding:14px;margin-top:13px;display:none}
+.pprev.show{display:block}
+.ppw{max-height:240px;overflow-y:auto;margin:10px 0}
+.pb{height:3px;background:var(--bd);border-radius:2px;margin-top:9px;overflow:hidden;display:none}
+.pb.show{display:block}
+.pf{height:100%;background:var(--ac);border-radius:2px;transition:width .4s}
+
+/* PDF STATUS */
+.pdfs{display:none;margin-top:12px;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:13px}
+.pdfs.show{display:block}
+.pdfsi{font-size:11px;color:var(--mu);line-height:1.7;margin-top:5px}
+
+/* MODALS */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:none;align-items:center;justify-content:center;padding:16px}
+.modal.show{display:flex}
+.mbox{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:20px;width:min(420px,100%)}
+.mbox.wide{width:min(620px,100%);max-height:85vh;overflow-y:auto}
+.mtitle{font-family:"Syne",sans-serif;font-size:16px;font-weight:700;margin-bottom:14px}
+.merr{color:var(--ac3);font-size:11px;margin-top:9px;display:none}
+.merr.show{display:block}
+
+/* SETUP STEPS */
+.step{background:var(--sf2);border-radius:7px;padding:11px 14px;margin-bottom:10px}
+.step strong{color:var(--ac)}
+.step code{background:var(--bd);padding:1px 5px;border-radius:3px;font-size:11px;word-break:break-all}
+.step a{color:var(--ac2)}
+
+/* SYNC INDICATOR */
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--mu);display:inline-block;margin-right:4px;transition:background .3s}
+.sync-dot.ok{background:var(--ok)}
+.sync-dot.err{background:var(--ac3)}
+.sync-dot.spin{background:var(--ac);animation:pulse .8s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* TOAST */
+#toast{position:fixed;bottom:22px;right:22px;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:11px 17px;font-size:12px;z-index:9999;transform:translateY(60px);opacity:0;transition:all .22s;pointer-events:none}
+#toast.show{transform:translateY(0);opacity:1}
+#toast.ok{border-color:var(--ok)}
+#toast.err{border-color:var(--ac3)}
+
+/* UTIL */
+.tag{color:var(--ac)}
+.np{/* no-print class */}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--sf)}
+::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
+
+/* PRINT */
+@media print{
+  *{font-family:Arial,sans-serif!important}
+  body{background:#fff!important;color:#000!important;font-size:11px}
+  nav,.arow,.cX,.np,.ghost,.pdfs,.pprev,.dz,.frow,.dbc,.dbw,
+  #page-database,#page-history,#page-analytics,
+  .ctitle,.fgrid,.tgrid,.modal{display:none!important}
+  #page-quotation{display:block!important;padding:10mm 12mm}
+  #page-quotation::before{content:"ME QUOTATION";display:block;font-size:19px;font-weight:bold;text-align:center;letter-spacing:3px;margin-bottom:14px;border-bottom:2px solid #000;padding-bottom:9px}
+  .tgrid{display:grid!important;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-top:12px}
+  .tbox{background:#f5f5f5!important;border:1px solid #ccc!important;padding:8px 11px;text-align:center}
+  .tbox .tl{font-size:9px;color:#555!important;text-transform:uppercase;margin-bottom:3px}
+  .tbox .tv{font-size:13px;font-weight:bold;color:#000!important}
+  .card{border:none!important;background:#fff!important;padding:0!important}
+  thead th{background:#222!important;color:#fff!important;font-size:10px;padding:6px 7px}
+  tbody tr{border-bottom:1px solid #ddd}
+  tbody td{padding:5px 7px;font-size:11px;color:#000!important}
+  tbody td input{border:none!important;background:transparent!important;color:#000!important;font-size:11px;padding:0}
+  .csn{color:#555!important;font-size:10px}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">ME<span>QUOTE</span></span>
+  <div class="ntabs">
+    <button class="nt active" data-page="quotation" onclick="goPage('quotation')">📋 Quotation</button>
+    <button class="nt" data-page="history" onclick="goPage('history')">🕓 History</button>
+    <button class="nt admin-only" data-page="analytics" onclick="goPage('analytics')">📊 Analytics</button>
+    <button class="nt admin-only" data-page="database" onclick="goPage('database')">🗄 Database</button>
+  </div>
+  <div class="nav-right">
+    <span class="sync-dot" id="sync-dot" title="Sheet sync status"></span>
+    <span id="sync-label" style="font-size:10px;color:var(--mu)">offline</span>
+    <button class="admin-chip" id="admin-chip" onclick="toggleAdminPanel()">Admin</button>
+  </div>
+</nav>
+
+<!-- ADMIN LOGIN MODAL -->
+<div class="modal" id="modal-login">
+  <div class="mbox">
+    <div class="mtitle">Admin Login</div>
+    <div class="fl" style="margin-bottom:10px">
+      <label>User ID</label>
+      <input id="li-id" type="text" placeholder="admin" autocomplete="username">
+    </div>
+    <div class="fl">
+      <label>Password</label>
+      <input id="li-pw" type="password" placeholder="Password" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="merr" id="li-err">Invalid credentials.</div>
+    <div class="arow">
+      <button class="btn btn-p" onclick="doLogin()">Login</button>
+      <button class="btn btn-g" onclick="closeModal('modal-login')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETUP GUIDE MODAL -->
+<div class="modal" id="modal-setup">
+  <div class="mbox wide">
+    <div class="mtitle">📋 Setup Guide — Connect to Google Sheets</div>
+    <div class="step"><strong>Step 1 — Create a Google Sheet</strong><br>
+      Go to <a href="https://sheets.google.com" target="_blank">sheets.google.com</a> → New Spreadsheet. Name it anything.</div>
+    <div class="step"><strong>Step 2 — Add the Apps Script</strong><br>
+      In your sheet: <strong>Extensions → Apps Script</strong> → delete all existing code → paste the full contents of <code>Code.gs</code> → Save (Ctrl+S).</div>
+    <div class="step"><strong>Step 3 — Deploy as Web App</strong><br>
+      Click <strong>Deploy → New Deployment → Select type: Web App</strong><br>
+      Execute as: <strong>Me</strong> | Who has access: <strong>Anyone</strong><br>
+      Click <strong>Deploy</strong> → click through the Google warning (click Advanced → Go to app) → <strong>Allow</strong><br>
+      Copy the Web App URL (looks like <code>https://script.google.com/macros/s/ABC…/exec</code>)</div>
+    <div class="step"><strong>Step 4 — Initialize Sheets</strong><br>
+      Paste your URL in the Config section below and click <strong>Connect</strong>. It will auto-create all tabs (Users, Items, Quotations, Folders, Config).</div>
+    <div class="step"><strong>Step 5 — Set your password</strong><br>
+      Open your Google Sheet → <strong>Users</strong> tab → edit the password column. Changes take effect immediately. Default: <code>admin / admin123</code></div>
+    <div class="step"><strong>Step 6 — Gemini API Key (for PDF import)</strong><br>
+      Go to <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a> → Get API Key → Create API Key. Paste it in Config below or in the Sheet's Config tab.</div>
+    <div class="step"><strong>Step 7 — Host on GitHub Pages (free)</strong><br>
+      <a href="https://github.com" target="_blank">github.com</a> → New public repo → upload this file as <code>index.html</code><br>
+      Settings → Pages → Source: main branch → Save.<br>
+      Your live URL: <code>https://yourusername.github.io/repo-name</code></div>
+    <div class="arow"><button class="btn btn-p" onclick="closeModal('modal-setup')">Got it</button></div>
+  </div>
+</div>
+
+<!-- QUOTATION PAGE -->
+<div id="page-quotation" class="page active">
+  <div class="ptitle">Quotation Builder</div>
+  <p class="psub">Type item name or code — autocomplete fills code and price.</p>
+
+  <div class="card">
+    <div class="ctitle">Client Details</div>
+    <div class="fgrid">
+      <div class="fl"><label>Client Name</label><input id="m-client" type="text" placeholder="Client / Company"></div>
+      <div class="fl"><label>Quotation No.</label><input id="m-qno" type="text" placeholder="Q-2025-001"></div>
+      <div class="fl"><label>Date</label><input id="m-date" type="date"></div>
+      <div class="fl"><label>Site / Project</label><input id="m-site" type="text" placeholder="Project or site"></div>
+    </div>
+  </div>
+
+  <div class="card np" id="upload-from-file-card">
+    <div class="ctitle">Create From Upload</div>
+    <div class="arow" style="margin-top:0">
+      <button class="btn btn-p btn-sm" onclick="document.getElementById('qu-file').click()">📎 Choose File</button>
+      <button class="btn btn-g btn-sm" onclick="document.getElementById('qu-cam').click()">📷 Camera / Gallery</button>
+      <span class="tag" id="qu-count" style="font-size:11px"></span>
+    </div>
+    <input type="file" id="qu-file" accept=".xlsx,.xls,.csv,.txt,.pdf,image/*" style="display:none" onchange="handleQuoteFile(event)">
+    <input type="file" id="qu-cam" accept="image/*" capture="environment" style="display:none" onchange="handleQuoteFile(event)">
+    <div id="qu-status" style="display:none;margin-top:10px;font-size:11px;color:var(--mu)"></div>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">Line Items</div>
+    <div class="twrap">
+      <table>
+        <thead><tr>
+          <th class="csn">#</th>
+          <th class="cn">Item Name</th>
+          <th class="cc">Code</th>
+          <th class="cq">Qty</th>
+          <th class="cp">MRP (₹)</th>
+          <th class="cd">Disc %</th>
+          <th class="cr">Rate (₹)</th>
+          <th class="ct">Tax %</th>
+          <th class="ca">Amount (₹)</th>
+          <th class="cX"></th>
+        </tr></thead>
+        <tbody id="qbody"></tbody>
+      </table>
+    </div>
+    <div class="tgrid">
+      <div class="tbox hi"><div class="tl">Total Before Tax</div><div class="tv" id="tot-b">₹0</div></div>
+      <div class="tbox ta"><div class="tl">Tax (GST 18%)</div><div class="tv" id="tot-t">₹0</div></div>
+      <div class="tbox tf"><div class="tl">Total After Tax</div><div class="tv" id="tot-a">₹0</div></div>
+    </div>
+  </div>
+
+  <div class="arow np">
+    <button class="btn btn-p" onclick="saveAndPrint()">⬇ Save &amp; Export PDF</button>
+    <button class="btn btn-g" onclick="saveQ()">💾 Save</button>
+    <button class="btn btn-g btn-sm" onclick="clearAll()">✕ Clear</button>
+  </div>
+</div>
+
+<!-- HISTORY PAGE -->
+<div id="page-history" class="page">
+  <div class="ptitle">Saved Quotations</div>
+  <p class="psub">All saved quotations. Load any back into the builder.</p>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:13px;flex-wrap:wrap;gap:8px">
+      <input class="si" id="h-search" type="text" placeholder="Search client, quotation no…" oninput="renderHist()" style="max-width:280px">
+      <button class="btn btn-d btn-sm" onclick="clearAllHist()">🗑 Clear All</button>
+    </div>
+    <div id="hlist"></div>
+  </div>
+</div>
+
+<!-- ANALYTICS PAGE (admin only) -->
+<div id="page-analytics" class="page">
+  <div class="ptitle">Analytics Dashboard</div>
+  <p class="psub">Demand insights from all saved quotations.</p>
+  <div class="kpis" id="kpis"></div>
+  <div class="charts">
+    <div class="card"><div class="ctitle">Top Brands by Demand</div><div id="ch-br"></div></div>
+    <div class="card"><div class="ctitle">Top Products by Qty</div><div id="ch-pr"></div></div>
+    <div class="card"><div class="ctitle">Revenue by Brand (₹)</div><div id="ch-rv"></div></div>
+    <div class="card"><div class="ctitle">Quotations Over Time</div><div id="ch-tl"></div></div>
+  </div>
+</div>
+
+<!-- DATABASE PAGE (admin only) -->
+<div id="page-database" class="page">
+  <div class="ptitle">Item Database</div>
+  <p class="psub">Upload Excel / CSV / PDF to import. Edit, delete, organise into folders.</p>
+
+  <!-- Connection Config Card -->
+  <div class="card" style="border-color:rgba(232,197,71,.3)">
+    <div class="ctitle">⚙ Google Sheets Connection</div>
+    <div class="fgrid">
+      <div class="fl" style="grid-column:1/-1">
+        <label>Apps Script Web App URL</label>
+        <input id="cfg-url" type="url" placeholder="https://script.google.com/macros/s/…/exec"
+          oninput="markDirty()">
+      </div>
+      <div class="fl">
+        <label>Gemini API Key (for PDF OCR)</label>
+        <input id="cfg-gem" type="password" placeholder="AIza…" oninput="markDirty()">
+      </div>
+    </div>
+    <div class="arow" style="margin-top:10px">
+      <button class="btn btn-p btn-sm" onclick="connectSheets()">Connect &amp; Sync</button>
+      <button class="btn btn-g btn-sm" onclick="openModal('modal-setup')">Setup Guide</button>
+      <span id="conn-status" style="font-size:11px;color:var(--mu)"></span>
+    </div>
+  </div>
+
+  <!-- Folders -->
+  <div class="card">
+    <div class="ctitle">Folders</div>
+    <div class="frow" id="frow"></div>
+    <button class="nfb" onclick="newFolder()">+ New Folder</button>
+  </div>
+
+  <!-- Upload -->
+  <div class="card">
+    <div class="ctitle">Upload &amp; Import</div>
+    <div class="dz" id="dz"
+      ondragover="event.preventDefault();this.classList.add('drag')"
+      ondragleave="this.classList.remove('drag')"
+      ondrop="handleDrop(event)"
+      onclick="document.getElementById('db-file').click()">
+      <div class="di">📊</div>
+      <div class="dt">Drop Excel, CSV or PDF here</div>
+      <div class="ds">.xlsx .xls .csv — and .pdf (Gemini AI extracts multi-column, multi-brand tables)</div>
+    </div>
+    <input type="file" id="db-file" accept=".xlsx,.xls,.csv,.pdf" style="display:none" onchange="handleDBFile(event)">
+    <div class="pb" id="xpb"><div class="pf" id="xpf" style="width:0%"></div></div>
+    <div class="pdfs" id="pdfs">
+      <div style="display:flex;align-items:center;gap:9px">
+        <span id="pdf-icon" style="font-size:18px">🤖</span>
+        <strong id="pdf-title" style="font-size:13px">Processing…</strong>
+      </div>
+      <div class="pdfsi" id="pdf-msg"></div>
+      <div class="pb show" style="margin-top:9px"><div class="pf" id="pdf-pf" style="width:0%;transition:width .8s ease"></div></div>
+    </div>
+    <div class="pprev" id="pprev">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong style="font-size:13px">Preview</strong>
+        <span id="pp-cnt" style="font-size:11px;color:var(--mu)"></span>
+      </div>
+      <div class="ppw">
+        <table class="dbt">
+          <thead><tr><th>ITEM NAME</th><th>CODE</th><th>PRICE</th><th>BRAND</th></tr></thead>
+          <tbody id="pp-body"></tbody>
+        </table>
+      </div>
+      <div class="arow">
+        <button class="btn btn-p btn-sm" onclick="importParsed()">✓ Import to DB</button>
+        <button class="btn btn-g btn-sm" onclick="cancelImport()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Items Table -->
+  <div class="card">
+    <div class="ctitle">All Items <span class="tag" id="db-cnt"></span></div>
+    <div class="dbc">
+      <input class="si" id="db-q" type="text" placeholder="Search name, code, brand…" oninput="renderDB()">
+      <select class="fs" id="db-brand" onchange="renderDB()"><option value="">All Brands</option></select>
+      <button class="btn btn-g btn-sm" onclick="addItem()">+ Add Item</button>
+      <button class="btn btn-d btn-sm" onclick="syncItemsToSheet()">↑ Push to Sheet</button>
+    </div>
+    <div class="dbw">
+      <table class="dbt">
+        <thead><tr>
+          <th style="width:34px">#</th><th>ITEM NAME</th>
+          <th style="width:110px">CODE</th><th style="width:90px">PRICE (₹)</th>
+          <th style="width:120px">BRAND</th><th style="width:100px">FOLDER</th>
+          <th style="width:28px"></th>
+        </tr></thead>
+        <tbody id="db-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ================================================================
+// CONFIG — paste your values here OR use the Config card in the app
+// ================================================================
+var SCRIPT_URL = '';  // your Apps Script Web App URL
+var GEMINI_KEY = '';  // your Gemini API key
+
+// ================================================================
+// SEED DATA (built-in items, used if no Sheet connected)
+// ================================================================
+const SEED_DATA = [{"brand":"MYLINC","name":"6A 1WAY","code":"675501","price":112},{"brand":"MYLINC","name":"6A 2WAY","code":"675502","price":226},{"brand":"MYLINC","name":"6A 1 W/ IND","code":"675503","price":254},{"brand":"MYLINC","name":"16A 1 WAY","code":"675511","price":256},{"brand":"MYLINC","name":"16A 2WAY","code":"675512","price":322},{"brand":"MYLINC","name":"16A W/IND","code":"675513","price":336},{"brand":"MYLINC","name":"32A DP","code":"675526","price":764},{"brand":"MYLINC","name":"20A DP","code":"","price":null},{"brand":"MYLINC","name":"1M BELL PUSH","code":"675504","price":236},{"brand":"MYLINC","name":"1M /P WID","code":"","price":null},{"brand":"MYLINC","name":"2M B/P","code":"","price":null},{"brand":"MYLINC","name":"2M B/P WID","code":"675506","price":468},{"brand":"MYLINC","name":"IND","code":"675595","price":326},{"brand":"MYLINC","name":"2MF/L","code":"675976","price":null},{"brand":"MYLINC","name":"3M F/L","code":"675597","price":1044},{"brand":"MYLINC","name":"SOCKET STEP","code":"675964","price":986},{"brand":"MYLINC","name":"SOCKET STEP OLD","code":"675530","price":1062},{"brand":"MYLINC","name":"MINI STEP","code":"675531","price":794},{"brand":"MYLINC","name":"6A2X1SOC","code":"675551","price":310},{"brand":"MYLINC","name":"6A2X1SOC OLD","code":"","price":null},{"brand":"MYLINC","name":"16A2X1 3M SOC","code":"","price":null},{"brand":"MYLINC","name":"16A2XI SOC","code":"675555","price":476},{"brand":"MYLINC","name":"2PIN SOC","code":"675553","price":null},{"brand":"MYLINC","name":"INT SOC","code":"675554","price":null},{"brand":"MYLINC","name":"TVSOC","code":"675546","price":264},{"brand":"MYLINC","name":"TEPSOC","code":"675541","price":248},{"brand":"MYLINC","name":"RJ-45","code":"675967","price":818},{"brand":"MYLINC","name":"1M USB","code":"675971","price":null},{"brand":"MYLINC","name":"1M USB NA","code":"675820","price":1412},{"brand":"MYLINC","name":"DUMMY","code":"675590","price":64},{"brand":"MYLINC","name":"16A 2WAY 2M","code":"","price":null},{"brand":"MYLINC","name":"6A2WAY 2M","code":"","price":null},{"brand":"MYLINC","name":"25A SOCK 2M","code":"","price":null},{"brand":"MYLINC","name":"1 M PLATE","code":"675561","price":186},{"brand":"MYLINC","name":"2 M PLATE","code":"675562","price":186},{"brand":"MYLINC","name":"3 M PLATE","code":"675563","price":254},{"brand":"MYLINC","name":"4 M PLATE","code":"675564","price":282},{"brand":"MYLINC","name":"6 M PLATE","code":"675566","price":350},{"brand":"MYLINC","name":"8 M PLATE","code":"675567","price":450},{"brand":"MYLINC","name":"9 M PLATE","code":"675569","price":538},{"brand":"MYLINC","name":"12 M PLATE","code":"675572","price":660},{"brand":"MYLINC","name":"16 M PLATE","code":"675573","price":770},{"brand":"MYLINC","name":"18 M PLATE","code":"675578","price":1030},{"brand":"MYRIUS","name":"6A 1WAY","code":"673000","price":174},{"brand":"MYRIUS","name":"6A 2WAY","code":"673001","price":306},{"brand":"MYRIUS","name":"6A 1 W/ IND","code":"673002","price":282},{"brand":"MYRIUS","name":"16A 1 WAY","code":"673008","price":414},{"brand":"MYRIUS","name":"16A 2WAY","code":"673009","price":478},{"brand":"MYRIUS","name":"16A W/IND","code":"673010","price":500},{"brand":"MYRIUS","name":"32A DP","code":"673016","price":1418},{"brand":"MYRIUS","name":"20A DP","code":"673013","price":876},{"brand":"MYRIUS","name":"1M BELL PUSH","code":"673020","price":340},{"brand":"MYRIUS","name":"1M /P WID","code":"673021","price":448},{"brand":"MYRIUS","name":"2M B/P","code":"673022","price":514},{"brand":"MYRIUS","name":"2M B/P WID","code":"673023","price":606},{"brand":"MYRIUS","name":"IND","code":"","price":null},{"brand":"MYRIUS","name":"2MF/L","code":"","price":null},{"brand":"MYRIUS","name":"3M F/L","code":"673036","price":1220},{"brand":"MYRIUS","name":"SOCKET STEP","code":"673029","price":1390},{"brand":"MYRIUS","name":"SOCKET STEP OLD","code":"","price":null},{"brand":"MYRIUS","name":"MINI STEP","code":"673027","price":1208},{"brand":"MYRIUS","name":"6A2X1SOC","code":"673186","price":284},{"brand":"MYRIUS","name":"6A2X1SOC OLD","code":"","price":null},{"brand":"MYRIUS","name":"16A2X1 3M SOC","code":"673083","price":768},{"brand":"MYRIUS","name":"16A2XI SOC","code":"673045","price":642},{"brand":"MYRIUS","name":"2PIN SOC","code":"673041","price":null},{"brand":"MYRIUS","name":"INT SOC","code":"673043","price":null},{"brand":"MYRIUS","name":"TVSOC","code":"673050","price":312},{"brand":"MYRIUS","name":"TEPSOC","code":"673052","price":310},{"brand":"MYRIUS","name":"RJ-45","code":"673055","price":977},{"brand":"MYRIUS","name":"1M USB","code":"673162","price":2190},{"brand":"MYRIUS","name":"1M USB NA","code":"","price":null},{"brand":"MYRIUS","name":"DUMMY","code":"673061","price":80},{"brand":"MYRIUS","name":"16A 2WAY 2M","code":"673014","price":null},{"brand":"MYRIUS","name":"6A2WAY 2M","code":"673006","price":null},{"brand":"MYRIUS","name":"25A SOCK 2M","code":"673047","price":null},{"brand":"MYRIUS","name":"1 M PLATE","code":"673201","price":288},{"brand":"MYRIUS","name":"2 M PLATE","code":"673202","price":312},{"brand":"MYRIUS","name":"3 M PLATE","code":"673203","price":328},{"brand":"MYRIUS","name":"4 M PLATE","code":"673204","price":352},{"brand":"MYRIUS","name":"6 M PLATE","code":"673206","price":634},{"brand":"MYRIUS","name":"8 M PLATE","code":"673208","price":702},{"brand":"MYRIUS","name":"9 M PLATE","code":"","price":null},{"brand":"MYRIUS","name":"12 M PLATE","code":"673212","price":1056},{"brand":"MYRIUS","name":"16 M PLATE","code":"673216","price":1220},{"brand":"MYRIUS","name":"18 M PLATE","code":"673218","price":1406},{"brand":"RTR","name":"6A 1WAY","code":"573400","price":232},{"brand":"RTR","name":"6A 2WAY","code":"573402","price":382},{"brand":"RTR","name":"6A 1 W/ IND","code":"573401","price":432},{"brand":"RTR","name":"16A 1 WAY","code":"573410","price":520},{"brand":"RTR","name":"16A 2WAY","code":"573411","price":750},{"brand":"RTR","name":"16A W/IND","code":"572063","price":536},{"brand":"RTR","name":"32A DP","code":"573412","price":1646},{"brand":"RTR","name":"20A DP","code":"573454","price":1154},{"brand":"RTR","name":"1M BELL PUSH","code":"573413","price":418},{"brand":"RTR","name":"1M /P WID","code":"573414","price":556},{"brand":"RTR","name":"2M B/P","code":"573459","price":null},{"brand":"RTR","name":"2M B/P WID","code":"573460","price":792},{"brand":"RTR","name":"IND","code":"572452","price":916},{"brand":"RTR","name":"2MF/L","code":"","price":null},{"brand":"RTR","name":"3M F/L","code":"573464","price":1420},{"brand":"RTR","name":"SOCKET STEP","code":"573463","price":1746},{"brand":"RTR","name":"SOCKET STEP OLD","code":"","price":null},{"brand":"RTR","name":"MINI STEP","code":"573416","price":1416},{"brand":"RTR","name":"6A2X1SOC","code":"573424","price":356},{"brand":"RTR","name":"6A2X1SOC OLD","code":"573470","price":null},{"brand":"RTR","name":"16A2X1 3M SOC","code":"573467","price":null},{"brand":"RTR","name":"16A2XI SOC","code":"573471","price":722},{"brand":"RTR","name":"2PIN SOC","code":"572059","price":null},{"brand":"RTR","name":"INT SOC","code":"573473","price":null},{"brand":"RTR","name":"TVSOC","code":"573425","price":390},{"brand":"RTR","name":"TEPSOC","code":"573426","price":374},{"brand":"RTR","name":"RJ-45","code":"573428","price":1127},{"brand":"RTR","name":"1M USB","code":"573441","price":2722},{"brand":"RTR","name":"1M USB NA","code":"","price":null},{"brand":"RTR","name":"DUMMY","code":"573449","price":72},{"brand":"RTR","name":"16A 2WAY 2M","code":"572042","price":null},{"brand":"RTR","name":"6A2WAY 2M","code":"573451","price":null},{"brand":"RTR","name":"25A SOCK 2M","code":"","price":null},{"brand":"RTR","name":"1 M PLATE","code":"575700","price":326},{"brand":"RTR","name":"2 M PLATE","code":"575710","price":344},{"brand":"RTR","name":"3 M PLATE","code":"575720","price":386},{"brand":"RTR","name":"4 M PLATE","code":"575730","price":404},{"brand":"RTR","name":"6 M PLATE","code":"575740","price":738},{"brand":"RTR","name":"8 M PLATE","code":"575750","price":820},{"brand":"RTR","name":"9 M PLATE","code":"","price":null},{"brand":"RTR","name":"12 M PLATE","code":"575770","price":1264},{"brand":"RTR","name":"16 M PLATE","code":"575780","price":1514},{"brand":"RTR","name":"18 M PLATE","code":"575790","price":1676},{"brand":"BRITZY","name":"6A 1WAY","code":"673401","price":54},{"brand":"BRITZY","name":"6A 2WAY","code":"673402","price":128},{"brand":"BRITZY","name":"6A 1 W/ IND","code":"673403","price":128},{"brand":"BRITZY","name":"16A 1 WAY","code":"673411","price":184},{"brand":"BRITZY","name":"16A 2WAY","code":"673412","price":222},{"brand":"BRITZY","name":"16A W/IND","code":"673413","price":198},{"brand":"BRITZY","name":"32A DP","code":"673426","price":370},{"brand":"BRITZY","name":"20A DP","code":"","price":null},{"brand":"BRITZY","name":"1M BELL PUSH","code":"","price":null},{"brand":"BRITZY","name":"1M /P WID","code":"673404","price":154},{"brand":"BRITZY","name":"2M B/P","code":"","price":null},{"brand":"BRITZY","name":"2M B/P WID","code":"673406","price":232},{"brand":"BRITZY","name":"IND","code":"673475","price":154},{"brand":"BRITZY","name":"2MF/L","code":"673477","price":602},{"brand":"BRITZY","name":"3M F/L","code":"","price":null},{"brand":"BRITZY","name":"SOCKET STEP","code":"673430","price":770},{"brand":"BRITZY","name":"SOCKET STEP OLD","code":"","price":null},{"brand":"BRITZY","name":"MINI STEP","code":"673431","price":604},{"brand":"BRITZY","name":"6A2X1SOC","code":"673427","price":160},{"brand":"BRITZY","name":"6A2X1SOC OLD","code":"","price":null},{"brand":"BRITZY","name":"16A2X1 3M SOC","code":"","price":null},{"brand":"BRITZY","name":"16A2XI SOC","code":"673455","price":278},{"brand":"BRITZY","name":"2PIN SOC","code":"673453","price":null},{"brand":"BRITZY","name":"INT SOC","code":"673454","price":null},{"brand":"BRITZY","name":"TVSOC","code":"673446","price":134},{"brand":"BRITZY","name":"TEPSOC","code":"673441","price":146},{"brand":"BRITZY","name":"RJ-45","code":"673445","price":340},{"brand":"BRITZY","name":"1M USB","code":"673135","price":1254},{"brand":"BRITZY","name":"1M USB NA","code":"","price":null},{"brand":"BRITZY","name":"DUMMY","code":"673490","price":38},{"brand":"BRITZY","name":"16A 2WAY 2M","code":"","price":null},{"brand":"BRITZY","name":"6A2WAY 2M","code":"","price":null},{"brand":"BRITZY","name":"25A SOCK 2M","code":"","price":null},{"brand":"BRITZY","name":"1 M PLATE","code":"673491","price":122},{"brand":"BRITZY","name":"2 M PLATE","code":"673492","price":122},{"brand":"BRITZY","name":"3 M PLATE","code":"673493","price":168},{"brand":"BRITZY","name":"4 M PLATE","code":"673494","price":176},{"brand":"BRITZY","name":"6 M PLATE","code":"673496","price":236},{"brand":"BRITZY","name":"8 M PLATE","code":"673498","price":302},{"brand":"BRITZY","name":"9 M PLATE","code":"","price":null},{"brand":"BRITZY","name":"12 M PLATE","code":"673497","price":438},{"brand":"BRITZY","name":"16 M PLATE","code":"673499","price":470},{"brand":"BRITZY","name":"18 M PLATE","code":"673500","price":578},{"brand":"LYNCUS","name":"6A 1WAY","code":"677200","price":98},{"brand":"LYNCUS","name":"6A 2WAY","code":"677201","price":204},{"brand":"LYNCUS","name":"6A 1 W/ IND","code":"677202","price":204},{"brand":"LYNCUS","name":"16A 1 WAY","code":"677209","price":236},{"brand":"LYNCUS","name":"16A 2WAY","code":"677210","price":290},{"brand":"LYNCUS","name":"16A W/IND","code":"677211","price":300},{"brand":"LYNCUS","name":"32A DP","code":"677217","price":690},{"brand":"LYNCUS","name":"20A DP","code":"677214","price":512},{"brand":"LYNCUS","name":"1M BELL PUSH","code":"677220","price":216},{"brand":"LYNCUS","name":"1M /P WID","code":"677221","price":254},{"brand":"LYNCUS","name":"2M B/P","code":"677222","price":null},{"brand":"LYNCUS","name":"2M B/P WID","code":"677223","price":432},{"brand":"LYNCUS","name":"IND","code":"677287","price":588},{"brand":"LYNCUS","name":"2MF/L","code":"","price":null},{"brand":"LYNCUS","name":"3M F/L","code":"677248","price":666},{"brand":"LYNCUS","name":"SOCKET STEP","code":"677240","price":844},{"brand":"LYNCUS","name":"SOCKET STEP OLD","code":"","price":null},{"brand":"LYNCUS","name":"MINI STEP","code":"677239","price":680},{"brand":"LYNCUS","name":"6A2X1SOC","code":"677235","price":202},{"brand":"LYNCUS","name":"6A2X1SOC OLD","code":"","price":null},{"brand":"LYNCUS","name":"16A2X1 3M SOC","code":"677229","price":null},{"brand":"LYNCUS","name":"16A2XI SOC","code":"677230","price":410},{"brand":"LYNCUS","name":"2PIN SOC","code":"677225","price":null},{"brand":"LYNCUS","name":"INT SOC","code":"677227","price":null},{"brand":"LYNCUS","name":"TVSOC","code":"677260","price":230},{"brand":"LYNCUS","name":"TEPSOC","code":"677262","price":216},{"brand":"LYNCUS","name":"RJ-45","code":"677265","price":740},{"brand":"LYNCUS","name":"1M USB","code":"677290","price":null},{"brand":"LYNCUS","name":"1M USB NA","code":"","price":null},{"brand":"LYNCUS","name":"DUMMY","code":"677276","price":54},{"brand":"LYNCUS","name":"16A 2WAY 2M","code":"677215","price":null},{"brand":"LYNCUS","name":"6A2WAY 2M","code":"677206","price":null},{"brand":"LYNCUS","name":"25A SOCK 2M","code":"","price":null},{"brand":"LYNCUS","name":"1 M PLATE","code":"677501","price":170},{"brand":"LYNCUS","name":"2 M PLATE","code":"677502","price":170},{"brand":"LYNCUS","name":"3 M PLATE","code":"677503","price":218},{"brand":"LYNCUS","name":"4 M PLATE","code":"677504","price":254},{"brand":"LYNCUS","name":"6 M PLATE","code":"677506","price":308},{"brand":"LYNCUS","name":"8 M PLATE","code":"677508","price":394},{"brand":"LYNCUS","name":"9 M PLATE","code":"677510","price":null},{"brand":"LYNCUS","name":"12 M PLATE","code":"677512","price":574},{"brand":"LYNCUS","name":"16 M PLATE","code":"677516","price":668},{"brand":"LYNCUS","name":"18 M PLATE","code":"677518","price":902},{"brand":"WHITE","name":"6A 1WAY","code":"681100","price":54},{"brand":"WHITE","name":"6A 2WAY","code":"681111","price":122},{"brand":"WHITE","name":"6A 1 W/ IND","code":"681102","price":108},{"brand":"WHITE","name":"16A 1 WAY","code":"681101","price":146},{"brand":"WHITE","name":"16A 2WAY","code":"681112","price":212},{"brand":"WHITE","name":"16A W/IND","code":"681105","price":190},{"brand":"WHITE","name":"32A DP","code":"681116","price":356},{"brand":"WHITE","name":"20A DP","code":"681115","price":268},{"brand":"WHITE","name":"1M BELL PUSH","code":"681109","price":120},{"brand":"WHITE","name":"1M /P WID","code":"681110","price":146},{"brand":"WHITE","name":"2M B/P WID","code":"681114","price":222},{"brand":"WHITE","name":"IND","code":"681138","price":190},{"brand":"WHITE","name":"2MF/L","code":"681150","price":470},{"brand":"WHITE","name":"SOCKET STEP","code":"681141","price":658},{"brand":"WHITE","name":"MINI STEP","code":"681140","price":570},{"brand":"WHITE","name":"6A2X1SOC","code":"681124","price":188},{"brand":"WHITE","name":"16A2XI SOC","code":"681122","price":270},{"brand":"WHITE","name":"TVSOC","code":"681133","price":134},{"brand":"WHITE","name":"TEPSOC","code":"681130","price":140},{"brand":"WHITE","name":"RJ-45","code":"681132","price":729},{"brand":"WHITE","name":"1M USB","code":"681171","price":null},{"brand":"WHITE","name":"DUMMY","code":"681169","price":34},{"brand":"WHITE","name":"1 M PLATE","code":"681300","price":144},{"brand":"WHITE","name":"2 M PLATE","code":"681301","price":144},{"brand":"WHITE","name":"3 M PLATE","code":"681302","price":204},{"brand":"WHITE","name":"4 M PLATE","code":"681303","price":216},{"brand":"WHITE","name":"6 M PLATE","code":"681304","price":296},{"brand":"WHITE","name":"8 M PLATE","code":"681305","price":362},{"brand":"WHITE","name":"9 M PLATE","code":"681307","price":420},{"brand":"WHITE","name":"12 M PLATE","code":"681308","price":520},{"brand":"WHITE","name":"16 M PLATE","code":"681309","price":556},{"brand":"WHITE","name":"18 M PLATE","code":"681310","price":594},{"brand":"BLACK","name":"6A 1WAY","code":"681200","price":58},{"brand":"BLACK","name":"6A 2WAY","code":"681211","price":138},{"brand":"BLACK","name":"6A 1 W/ IND","code":"681202","price":118},{"brand":"BLACK","name":"16A 1 WAY","code":"681201","price":166},{"brand":"BLACK","name":"16A 2WAY","code":"681212","price":242},{"brand":"BLACK","name":"16A W/IND","code":"681205","price":220},{"brand":"BLACK","name":"32A DP","code":"681216","price":410},{"brand":"BLACK","name":"20A DP","code":"681215","price":300},{"brand":"BLACK","name":"1M BELL PUSH","code":"681209","price":220},{"brand":"BLACK","name":"1M /P WID","code":"681210","price":166},{"brand":"BLACK","name":"2M B/P WID","code":"681214","price":256},{"brand":"BLACK","name":"IND","code":"681238","price":210},{"brand":"BLACK","name":"2MF/L","code":"681250","price":536},{"brand":"BLACK","name":"SOCKET STEP","code":"681241","price":750},{"brand":"BLACK","name":"MINI STEP","code":"681240","price":660},{"brand":"BLACK","name":"6A2X1SOC","code":"681224","price":226},{"brand":"BLACK","name":"16A2XI SOC","code":"681222","price":306},{"brand":"BLACK","name":"TVSOC","code":"681233","price":154},{"brand":"BLACK","name":"TEPSOC","code":"681230","price":166},{"brand":"BLACK","name":"RJ-45","code":"681232","price":857},{"brand":"BLACK","name":"1M USB","code":"681270","price":2470},{"brand":"BLACK","name":"DUMMY","code":"681269","price":40},{"brand":"BLACK","name":"1 M PLATE","code":"681311","price":184},{"brand":"BLACK","name":"2 M PLATE","code":"681312","price":184},{"brand":"BLACK","name":"3 M PLATE","code":"681313","price":242},{"brand":"BLACK","name":"4 M PLATE","code":"681314","price":278},{"brand":"BLACK","name":"6 M PLATE","code":"681315","price":378},{"brand":"BLACK","name":"8 M PLATE","code":"681316","price":416},{"brand":"BLACK","name":"9 M PLATE","code":"681318","price":502},{"brand":"BLACK","name":"12 M PLATE","code":"681319","price":606},{"brand":"BLACK","name":"16 M PLATE","code":"681320","price":690},{"brand":"BLACK","name":"18 M PLATE","code":"681321","price":734},{"brand":"MYLINC CHAMP","name":"1 M PLATE","code":"676370","price":230},{"brand":"MYLINC CHAMP","name":"2 M PLATE","code":"676371","price":230},{"brand":"MYLINC CHAMP","name":"3 M PLATE","code":"676372","price":304},{"brand":"MYLINC CHAMP","name":"4 M PLATE","code":"676373","price":332},{"brand":"MYLINC CHAMP","name":"6 M PLATE","code":"676374","price":436},{"brand":"MYLINC CHAMP","name":"8 M PLATE","code":"676375","price":550},{"brand":"MYLINC CHAMP","name":"9 M PLATE","code":"676377","price":644},{"brand":"MYLINC CHAMP","name":"12 M PLATE","code":"676378","price":794},{"brand":"MYLINC CHAMP","name":"18 M PLATE","code":"676379","price":1244},{"brand":"MNG CHAMP","name":"1 M PLATE","code":"679561","price":480},{"brand":"MNG CHAMP","name":"2 M PLATE","code":"679562","price":508},{"brand":"MNG CHAMP","name":"3 M PLATE","code":"679563","price":540},{"brand":"MNG CHAMP","name":"4 M PLATE","code":"679564","price":584},{"brand":"MNG CHAMP","name":"6 M PLATE","code":"679566","price":1044},{"brand":"MNG CHAMP","name":"8 M PLATE","code":"679568","price":1140},{"brand":"MNG CHAMP","name":"12 M PLATE","code":"679572","price":1728},{"brand":"MNG CHAMP","name":"16 M PLATE","code":"679576","price":2010},{"brand":"MNG CHAMP","name":"18 M PLATE","code":"679578","price":2314},{"brand":"MNG DARK FADE","name":"1 M PLATE","code":"679601","price":480},{"brand":"MNG DARK FADE","name":"2 M PLATE","code":"679602","price":508},{"brand":"MNG DARK FADE","name":"3 M PLATE","code":"679603","price":540},{"brand":"MNG DARK FADE","name":"4 M PLATE","code":"679604","price":584},{"brand":"MNG DARK FADE","name":"6 M PLATE","code":"679606","price":1044},{"brand":"MNG DARK FADE","name":"8 M PLATE","code":"679608","price":1140},{"brand":"MNG DARK FADE","name":"12 M PLATE","code":"679612","price":1728},{"brand":"MNG DARK FADE","name":"16 M PLATE","code":"679616","price":2010},{"brand":"MNG DARK FADE","name":"18 M PLATE","code":"679618","price":2314},{"brand":"MNG SONIC SILVER","name":"1 M PLATE","code":"679581","price":480},{"brand":"MNG SONIC SILVER","name":"2 M PLATE","code":"679582","price":508},{"brand":"MNG SONIC SILVER","name":"3 M PLATE","code":"679583","price":540},{"brand":"MNG SONIC SILVER","name":"4 M PLATE","code":"679584","price":584},{"brand":"MNG SONIC SILVER","name":"6 M PLATE","code":"679586","price":1044},{"brand":"MNG SONIC SILVER","name":"8 M PLATE","code":"679588","price":1140},{"brand":"MNG SONIC SILVER","name":"12 M PLATE","code":"679592","price":1728},{"brand":"MNG SONIC SILVER","name":"16 M PLATE","code":"679596","price":2010},{"brand":"MNG SONIC SILVER","name":"18 M PLATE","code":"679598","price":2314}];
+
+// ================================================================
+// STATE
+// ================================================================
+var DB = [];
+var folders = ['all'];
+var curFolder = 'all';
+var parsedItems = [];
+var isAdmin = false;
+var rowId = 0;
+var acHL = -1;
+var toastT = null;
+var dirty = false;
+
+var LS_DB      = 'meq_db';
+var LS_FOLDERS = 'meq_folders';
+var LS_HIST    = 'meq_hist';
+var LS_URL     = 'meq_url';
+var LS_GEM     = 'meq_gem';
+
+// ================================================================
+// STORAGE
+// ================================================================
+function lsGet(k, def) {
+  try { var v = localStorage.getItem(k); return v !== null ? JSON.parse(v) : def; }
+  catch(e) { return def; }
+}
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
+
+function getScriptUrl() { return (document.getElementById('cfg-url') && document.getElementById('cfg-url').value.trim()) || lsGet(LS_URL,'') || SCRIPT_URL || ''; }
+function getGemKey()    { return (document.getElementById('cfg-gem') && document.getElementById('cfg-gem').value.trim()) || lsGet(LS_GEM,'') || GEMINI_KEY || ''; }
+
+function markDirty() { dirty = true; }
+
+// ================================================================
+// SHEETS API
+// ================================================================
+function setSyncStatus(state, label) {
+  var dot = document.getElementById('sync-dot');
+  var lbl = document.getElementById('sync-label');
+  if (dot) { dot.className = 'sync-dot ' + (state === 'ok' ? 'ok' : state === 'err' ? 'err' : 'spin'); }
+  if (lbl) lbl.textContent = label || '';
+}
+
+async function api(action, body) {
+  var url = getScriptUrl();
+  if (!url) return null;
+  try {
+    var res;
+    if (body) {
+      body.action = action;
+      res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    } else {
+      res = await fetch(url + '?action=' + action);
+    }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } catch(e) {
+    console.warn('API error (' + action + '):', e.message);
+    return null;
+  }
+}
+
+async function connectSheets() {
+  var url = getScriptUrl();
+  var gem = getGemKey();
+  if (!url) { toast('Paste your Apps Script URL first', 'err'); return; }
+
+  // Save to localStorage
+  lsSet(LS_URL, url);
+  lsSet(LS_GEM, gem);
+  dirty = false;
+
+  var el = document.getElementById('conn-status');
+  if (el) el.textContent = 'Connecting…';
+  setSyncStatus('spin', 'connecting');
+
+  var r = await api('setup');
+  if (!r || !r.ok) {
+    setSyncStatus('err', 'error');
+    if (el) el.textContent = '✕ Could not connect. Check the URL.';
+    toast('Connection failed. Check URL.', 'err');
+    return;
+  }
+
+  setSyncStatus('ok', 'connected');
+  if (el) { el.textContent = '✓ Connected!'; el.style.color = 'var(--ok)'; }
+  toast('Connected to Google Sheets!', 'ok');
+
+  // Full sync
+  await fullSync();
+}
+
+async function fullSync() {
+  var url = getScriptUrl();
+  if (!url) return;
+  setSyncStatus('spin', 'syncing');
+  try {
+    var [items, folds, hist, cfg] = await Promise.all([
+      api('items'), api('folders'), api('history'), api('config')
+    ]);
+
+    if (items && items.ok && Array.isArray(items.items) && items.items.length > 0) {
+      DB = items.items;
+      lsSet(LS_DB, DB);
+    }
+    if (folds && folds.ok && Array.isArray(folds.folders)) {
+      folders = folds.folders;
+      lsSet(LS_FOLDERS, folders);
+    }
+    if (hist && hist.ok && Array.isArray(hist.history)) {
+      // Merge: sheet wins for existing IDs, keep local-only entries
+      var local = lsGet(LS_HIST, []);
+      var sheetIds = new Set(hist.history.map(function(h) { return String(h.id); }));
+      var extra = local.filter(function(h) { return !sheetIds.has(String(h.id)); });
+      var merged = hist.history.concat(extra).sort(function(a,b) { return new Date(b.date) - new Date(a.date); });
+      lsSet(LS_HIST, merged);
+    }
+    if (cfg && cfg.ok && cfg.config && cfg.config.gemini_key) {
+      var keyEl = document.getElementById('cfg-gem');
+      if (keyEl && !keyEl.value) keyEl.value = cfg.config.gemini_key;
+    }
+
+    setSyncStatus('ok', 'synced');
+    renderFolders(); renderDB();
+  } catch(e) {
+    setSyncStatus('err', 'sync failed');
+  }
+}
+
+async function pushItems() {
+  var r = await api('save_items', { items: DB });
+  return r && r.ok;
+}
+
+async function syncItemsToSheet() {
+  setSyncStatus('spin', 'pushing');
+  var ok = await pushItems();
+  setSyncStatus(ok ? 'ok' : 'err', ok ? 'pushed' : 'error');
+  toast(ok ? 'Items pushed to Sheet' : 'Push failed', ok ? 'ok' : 'err');
+}
+
+// ================================================================
+// INIT
+// ================================================================
+function init() {
+  // Load from localStorage first
+  var stored = lsGet(LS_DB, null);
+  DB = stored && stored.length > 0 ? stored : SEED_DATA.map(function(d, i) {
+    return { id: i, name: d.name, code: d.code || '', price: d.price || null, brand: d.brand || '', folder: 'all' };
+  });
+  folders = lsGet(LS_FOLDERS, ['all']);
+
+  // Restore config UI
+  var url = lsGet(LS_URL, '');
+  var gem = lsGet(LS_GEM, '');
+  var urlEl = document.getElementById('cfg-url');
+  var gemEl = document.getElementById('cfg-gem');
+  if (urlEl && url) urlEl.value = url;
+  if (gemEl && gem) gemEl.value = gem;
+
+  // Restore admin session
+  if (sessionStorage.getItem('meq_admin') === '1') {
+    isAdmin = true;
+    document.body.classList.add('is-admin');
+    var chip = document.getElementById('admin-chip');
+    if (chip) { chip.textContent = 'Admin ✓'; chip.classList.add('on'); }
+  }
+
+  // Date + quotation number defaults
+  document.getElementById('m-date').valueAsDate = new Date();
+  document.getElementById('m-qno').value = 'Q-' + new Date().getFullYear() + '-001';
+
+  // Add first row + ghost
+  addRow();
+  ensureGhost();
+
+  // Background sync if URL exists
+  if (url) {
+    setSyncStatus('spin', 'syncing');
+    fullSync().catch(function() { setSyncStatus('err', 'offline'); });
+  }
+}
+
+// ================================================================
+// NAVIGATION
+// ================================================================
+function goPage(name) {
+  document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.nt').forEach(function(t) { t.classList.remove('active'); });
+  var pg = document.getElementById('page-' + name);
+  if (pg) pg.classList.add('active');
+  var bt = document.querySelector('[data-page="' + name + '"]');
+  if (bt) bt.classList.add('active');
+
+  if (name === 'database')  { renderFolders(); renderDB(); }
+  if (name === 'history')   { renderHist(); if (getScriptUrl()) api('history').then(function(r){ if(r&&r.ok) { lsSet(LS_HIST, r.history); renderHist(); } }); }
+  if (name === 'analytics') renderAnalytics();
+}
+
+// ================================================================
+// ADMIN AUTH
+// ================================================================
+function toggleAdminPanel() {
+  if (isAdmin) { logoutAdmin(); } else { openModal('modal-login'); }
+}
+
+function openModal(id) { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+async function doLogin() {
+  var id = document.getElementById('li-id').value.trim();
+  var pw = document.getElementById('li-pw').value;
+  var err = document.getElementById('li-err');
+  err.classList.remove('show');
+
+  var users = await getUsers();
+  var match = users.find(function(u) { return String(u.id).trim() === id && String(u.password).trim() === pw; });
+  if (!match) {
+    err.classList.add('show');
+    return;
+  }
+
+  isAdmin = true;
+  sessionStorage.setItem('meq_admin', '1');
+  document.body.classList.add('is-admin');
+  var chip = document.getElementById('admin-chip');
+  if (chip) { chip.textContent = 'Admin ✓'; chip.classList.add('on'); }
+  document.getElementById('li-pw').value = '';
+  closeModal('modal-login');
+  toast('Admin logged in', 'ok');
+}
+
+async function getUsers() {
+  // Try from Sheets first, fallback to hardcoded
+  var url = getScriptUrl();
+  if (url) {
+    var r = await api('users');
+    if (r && r.ok && r.users && r.users.length) return r.users;
+  }
+  // Fallback: default admin (password: admin123)
+  return [{ id: 'admin', password: 'admin123', role: 'admin' }];
+}
+
+function logoutAdmin() {
+  isAdmin = false;
+  sessionStorage.removeItem('meq_admin');
+  document.body.classList.remove('is-admin');
+  var chip = document.getElementById('admin-chip');
+  if (chip) { chip.textContent = 'Admin'; chip.classList.remove('on'); }
+  // If on admin-only page, go to quotation
+  var active = document.querySelector('.page.active');
+  if (active && (active.id === 'page-analytics' || active.id === 'page-database')) {
+    goPage('quotation');
+  }
+  toast('Logged out', 'ok');
+}
+
+// ================================================================
+// QUOTE ROWS
+// ================================================================
+function addRow(data, isGhost) {
+  var id = ++rowId;
+  var tbody = document.getElementById('qbody');
+  var sn = tbody.querySelectorAll('tr:not(.ghost)').length + 1;
+  var tr = document.createElement('tr');
+  tr.dataset.id = id;
+  if (isGhost) { tr.classList.add('ghost'); tr.onclick = function() { activateGhost(id); }; }
+
+  var ph = isGhost ? 'Click to add row…' : 'Type name or code…';
+  tr.innerHTML =
+    '<td class="csn">' + (isGhost ? '+' : sn) + '</td>' +
+    '<td class="cn"><div class="acw">' +
+      '<input type="text" class="ai" placeholder="' + ph + '"' +
+      (isGhost ? ' readonly' : '') +
+      ' value="' + X(data && data.name || '') + '"' +
+      ' onkeydown="akd(event,' + id + ')" oninput="ain(event,' + id + ')" onblur="abl(' + id + ')">' +
+      '<div class="acd" id="ac-' + id + '"></div></div></td>' +
+    '<td class="cc"><input type="text" class="ci" value="' + X(data && data.code || '') + '" placeholder="Code" oninput="cchg(event,' + id + ')"></td>' +
+    '<td class="cq"><input type="number" class="qi" value="' + (data && data.qty || 1) + '" min="1" oninput="calc(' + id + ')"></td>' +
+    '<td class="cp"><input type="number" class="pi" value="' + (data && data.price || '') + '" placeholder="0" oninput="calc(' + id + ')"></td>' +
+    '<td class="cd"><input type="number" class="di" value="' + (data && data.disc || 0) + '" min="0" max="100" oninput="calc(' + id + ')"></td>' +
+    '<td class="cr"><input type="text" class="ri" readonly placeholder="0.00"></td>' +
+    '<td class="ct"><input type="number" class="ti" value="18" min="0" max="100" oninput="calc(' + id + ')"></td>' +
+    '<td class="ca"><input type="text" class="ami" readonly placeholder="0.00"></td>' +
+    '<td class="cX">' + (isGhost ? '' : '<button style="background:none;border:none;cursor:pointer;color:var(--mu);font-size:13px;padding:3px;border-radius:4px;width:24px;height:24px;display:flex;align-items:center;justify-content:center" onmouseenter="this.style.background='rgba(255,107,107,.2)';this.style.color='var(--ac3)'" onmouseleave="this.style.background='';this.style.color='var(--mu)'" onclick="delRow(' + id + ')">✕</button>') + '</td>';
+  tbody.appendChild(tr);
+  calc(id);
+  return tr;
+}
+
+function ensureGhost() {
+  var existing = document.querySelector('#qbody tr.ghost');
+  if (!existing) addRow(null, true);
+}
+
+function activateGhost(id) {
+  var tr = gR(id);
+  if (!tr || !tr.classList.contains('ghost')) return;
+  tr.classList.remove('ghost');
+  tr.onclick = null;
+  var inp = tr.querySelector('.ai');
+  inp.removeAttribute('readonly');
+  inp.placeholder = 'Type name or code…';
+  var del = tr.querySelector('.cX');
+  del.innerHTML = '<button style="background:none;border:none;cursor:pointer;color:var(--mu);font-size:13px;padding:3px;border-radius:4px;width:24px;height:24px;display:flex;align-items:center;justify-content:center" onmouseenter="this.style.background='rgba(255,107,107,.2)';this.style.color='var(--ac3)'" onmouseleave="this.style.background='';this.style.color='var(--mu)'" onclick="delRow(' + id + ')">✕</button>';
+  updateSNs();
+  inp.focus();
+  ensureGhost();
+}
+
+function gR(id) { return document.querySelector('#qbody tr[data-id="' + id + '"]'); }
+
+function delRow(id) { var tr = gR(id); if (tr) tr.remove(); updateSNs(); calcTotals(); }
+
+function updateSNs() {
+  var n = 0;
+  document.querySelectorAll('#qbody tr').forEach(function(tr) {
+    var sn = tr.querySelector('.csn');
+    if (tr.classList.contains('ghost')) { if (sn) sn.textContent = '+'; }
+    else { n++; if (sn) sn.textContent = n; }
+  });
+}
+
+function clearAll() {
+  if (!confirm('Clear all rows?')) return;
+  document.getElementById('qbody').innerHTML = '';
+  calcTotals();
+  addRow();
+  ensureGhost();
+}
+
+function fillRow(id, item) {
+  var tr = gR(id);
+  if (!tr) return;
+  if (tr.classList.contains('ghost')) { activateGhost(id); tr = gR(id); }
+  tr.querySelector('.ai').value  = (item.brand ? item.brand + ' - ' : '') + item.name;
+  tr.querySelector('.ci').value  = item.code  || '';
+  tr.querySelector('.pi').value  = item.price || '';
+  calc(id);
+  var qEl = tr.querySelector('.qi');
+  if (qEl) setTimeout(function() { qEl.focus(); qEl.select(); }, 50);
+}
+
+function cchg(e, id) {
+  var code = e.target.value.trim().toUpperCase();
+  if (!code) return;
+  var m = DB.find(function(d) { return d.code && String(d.code).toUpperCase() === code; });
+  if (m) fillRow(id, m);
+}
+
+function calc(id) {
+  var tr = gR(id);
+  if (!tr) return;
+  var qty   = parseFloat(tr.querySelector('.qi').value)  || 0;
+  var price = parseFloat(tr.querySelector('.pi').value)  || 0;
+  var disc  = parseFloat(tr.querySelector('.di').value)  || 0;
+  var tax   = parseFloat(tr.querySelector('.ti').value)  || 0;
+  var rate  = price * (1 - disc / 100);
+  var amt   = rate * qty * (1 + tax / 100);
+  tr.querySelector('.ri').value  = rate ? rate.toFixed(2) : '';
+  tr.querySelector('.ami').value = amt  ? amt.toFixed(2)  : '';
+  calcTotals();
+}
+
+function calcTotals() {
+  var b = 0, t = 0, a = 0;
+  document.querySelectorAll('#qbody tr:not(.ghost)').forEach(function(tr) {
+    var qty  = parseFloat(tr.querySelector('.qi')  ? tr.querySelector('.qi').value  : 0) || 0;
+    var rate = parseFloat(tr.querySelector('.ri')  ? tr.querySelector('.ri').value  : 0) || 0;
+    var tax  = parseFloat(tr.querySelector('.ti')  ? tr.querySelector('.ti').value  : 0) || 0;
+    var sub  = qty * rate;
+    b += sub; t += sub * tax / 100; a += sub * (1 + tax / 100);
+  });
+  document.getElementById('tot-b').textContent = '₹' + fmt(b);
+  document.getElementById('tot-t').textContent = '₹' + fmt(t);
+  document.getElementById('tot-a').textContent = '₹' + fmt(a);
+}
+
+function fmt(n) { return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+// ================================================================
+// AUTOCOMPLETE
+// ================================================================
+function ain(e, id) {
+  var raw = e.target.value.trim(), q = raw.toLowerCase();
+  var dd = document.getElementById('ac-' + id);
+  acHL = -1;
+  if (!q) { dd.style.display = 'none'; return; }
+
+  // Exact code match → auto-fill
+  if (/^\d{4,}/.test(raw) || /^[A-Z]{2,}\d{3,}/i.test(raw)) {
+    var exact = DB.find(function(d) { return d.code && d.code.toLowerCase() === q; });
+    if (exact) { dd.style.display = 'none'; fillRow(id, exact); return; }
+  }
+
+  var words = q.split(/\s+/).filter(Boolean);
+  var results = DB.filter(function(d) {
+    var hay = ((d.brand || '') + ' ' + (d.name || '') + ' ' + (d.code || '')).toLowerCase();
+    return words.every(function(w) { return hay.indexOf(w) >= 0; });
+  }).slice(0, 30);
+
+  if (!results.length) { dd.style.display = 'none'; return; }
+
+  dd.innerHTML = results.map(function(r, i) {
+    var fol = (r.folder && r.folder !== 'all') ? '<span class="acfol">📁 ' + X(r.folder) + '</span>' : '';
+    return '<div class="aci" onmousedown="selAC(event,' + id + ',' + i + ')" onmouseenter="hlAC(' + i + ',' + id + ')">' +
+      '<span class="acn">' + (r.brand ? X(r.brand) + ' · ' : '') + X(r.name) + '</span>' +
+      '<span class="acs">' + (r.code ? 'Code: ' + X(r.code) : '') + (r.price ? ' · ₹' + r.price : '') + fol + '</span></div>';
+  }).join('');
+  dd._r = results;
+  dd.style.display = 'block';
+}
+
+function hlAC(i, id) {
+  acHL = i;
+  var items = document.getElementById('ac-' + id).querySelectorAll('.aci');
+  items.forEach(function(el, j) { el.classList.toggle('hi', i === j); });
+}
+
+function akd(e, id) {
+  var dd = document.getElementById('ac-' + id);
+  var its = dd.querySelectorAll('.aci');
+  if (!its.length) return;
+  if (e.key === 'ArrowDown') { e.preventDefault(); acHL = Math.min(acHL + 1, its.length - 1); hlAC(acHL, id); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); acHL = Math.max(acHL - 1, 0); hlAC(acHL, id); }
+  else if (e.key === 'Enter' && acHL >= 0) { e.preventDefault(); selAC(null, id, acHL); }
+  else if (e.key === 'Escape') { dd.style.display = 'none'; }
+  else if (e.key === 'Tab' && acHL >= 0) { selAC(null, id, acHL); }
+}
+
+function selAC(e, id, i) {
+  if (e) e.preventDefault();
+  var dd = document.getElementById('ac-' + id);
+  var item = dd._r && dd._r[i];
+  if (!item) return;
+  dd.style.display = 'none';
+  fillRow(id, item);
+}
+
+function abl(id) {
+  setTimeout(function() { var d = document.getElementById('ac-' + id); if (d) d.style.display = 'none'; }, 160);
+}
+
+// ================================================================
+// SAVE / PRINT
+// ================================================================
+function getRows() {
+  var rows = [];
+  document.querySelectorAll('#qbody tr:not(.ghost)').forEach(function(tr) {
+    var n = (tr.querySelector('.ai')  ? tr.querySelector('.ai').value.trim()  : '');
+    var c = (tr.querySelector('.ci')  ? tr.querySelector('.ci').value.trim()  : '');
+    if (!n && !c) return;
+    rows.push({
+      name:  n, code: c,
+      qty:   parseFloat(tr.querySelector('.qi')  ? tr.querySelector('.qi').value  : 0) || 0,
+      price: parseFloat(tr.querySelector('.pi')  ? tr.querySelector('.pi').value  : 0) || 0,
+      disc:  parseFloat(tr.querySelector('.di')  ? tr.querySelector('.di').value  : 0) || 0,
+      rate:  parseFloat(tr.querySelector('.ri')  ? tr.querySelector('.ri').value  : 0) || 0,
+      tax:   parseFloat(tr.querySelector('.ti')  ? tr.querySelector('.ti').value  : 0) || 0,
+      amt:   parseFloat(tr.querySelector('.ami') ? tr.querySelector('.ami').value : 0) || 0
+    });
+  });
+  return rows;
+}
+
+function saveQ() {
+  var rows = getRows();
+  if (!rows.length) { toast('Nothing to save', 'err'); return; }
+  var q = {
+    id:          Date.now(),
+    date:        new Date().toISOString(),
+    client:      document.getElementById('m-client').value || 'Unknown',
+    qno:         document.getElementById('m-qno').value    || '',
+    site:        document.getElementById('m-site').value   || '',
+    rows:        rows,
+    totalBefore: document.getElementById('tot-b').textContent,
+    totalTax:    document.getElementById('tot-t').textContent,
+    totalAfter:  document.getElementById('tot-a').textContent
+  };
+  var hist = lsGet(LS_HIST, []);
+  hist.unshift(q);
+  lsSet(LS_HIST, hist);
+  // Sync to Sheet in background
+  if (getScriptUrl()) api('save_quotation', { quotation: q }).catch(function() {});
+  toast('Saved!', 'ok');
+}
+
+function saveAndPrint() { saveQ(); setTimeout(function() { window.print(); }, 300); }
+
+// ================================================================
+// HISTORY
+// ================================================================
+function renderHist() {
+  var hist = lsGet(LS_HIST, []);
+  var q = ((document.getElementById('h-search') && document.getElementById('h-search').value) || '').toLowerCase();
+  var el = document.getElementById('hlist');
+  if (!el) return;
+  var list = hist.filter(function(h) {
+    return !q || (h.client||'').toLowerCase().indexOf(q) >= 0 || (h.qno||'').toLowerCase().indexOf(q) >= 0;
+  });
+  if (!list.length) {
+    el.innerHTML = '<div style="text-align:center;padding:32px;color:var(--mu)">' + (hist.length ? 'No results.' : 'No saved quotations yet.') + '</div>';
+    return;
+  }
+  el.innerHTML = list.map(function(h) {
+    var date = new Date(h.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    var cnt  = (h.rows && h.rows.length) || 0;
+    var bset = {}, brands = [];
+    (h.rows || []).forEach(function(r) {
+      var b = (r.name || '').split(' - ')[0];
+      if (b && !bset[b]) { bset[b] = 1; brands.push(b); }
+    });
+    return '<div class="hcard">' +
+      '<div style="font-size:22px">📄</div>' +
+      '<div class="hm">' +
+        '<div class="ht">' + X(h.client || 'Unknown') + (h.qno ? ' — ' + X(h.qno) : '') + '</div>' +
+        '<div class="hs">' + date + (h.site ? ' · ' + X(h.site) : '') + '</div>' +
+        '<div class="hbs">' +
+          '<span class="hb y">' + cnt + ' item' + (cnt !== 1 ? 's' : '') + '</span>' +
+          (brands.length ? '<span class="hb b">' + X(brands.slice(0, 3).join(', ')) + '</span>' : '') +
+          '<span class="hb g">' + (h.totalAfter || '') + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="hax">' +
+        '<button class="btn btn-g btn-sm" onclick="loadQ(' + h.id + ')">↩ Load</button>' +
+        '<button class="btn btn-d btn-sm" onclick="delHist(' + h.id + ')">✕</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function loadQ(id) {
+  var hist = lsGet(LS_HIST, []);
+  var q = hist.find(function(h) { return h.id === id; });
+  if (!q) return;
+  if (!confirm('Load this quotation? Current rows will be cleared.')) return;
+  document.getElementById('m-client').value = q.client || '';
+  document.getElementById('m-qno').value    = q.qno    || '';
+  document.getElementById('m-site').value   = q.site   || '';
+  document.getElementById('m-date').value   = (q.date || '').slice(0, 10);
+  document.getElementById('qbody').innerHTML = '';
+  (q.rows || []).forEach(function(r) { addRow({ name: r.name, code: r.code, qty: r.qty, price: r.price, disc: r.disc }); });
+  ensureGhost();
+  calcTotals();
+  goPage('quotation');
+  toast('Quotation loaded!', 'ok');
+}
+
+function delHist(id) {
+  if (!confirm('Delete this quotation?')) return;
+  lsSet(LS_HIST, lsGet(LS_HIST, []).filter(function(h) { return h.id !== id; }));
+  if (getScriptUrl()) api('delete_quotation', { id: id }).catch(function() {});
+  renderHist();
+  toast('Deleted');
+}
+
+function clearAllHist() {
+  if (!confirm('Delete ALL saved quotations?')) return;
+  lsSet(LS_HIST, []);
+  if (getScriptUrl()) api('clear_history', {}).catch(function() {});
+  renderHist();
+  toast('History cleared');
+}
+
+// ================================================================
+// ANALYTICS
+// ================================================================
+function renderAnalytics() {
+  var hist = lsGet(LS_HIST, []);
+  var kEl = document.getElementById('kpis');
+  if (!hist.length) {
+    kEl.innerHTML = '<div class="kpi" style="grid-column:1/-1"><div class="kl">No Data</div><div class="kv" style="font-size:14px;color:var(--mu)">Save some quotations first.</div></div>';
+    ['ch-br','ch-pr','ch-rv','ch-tl'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--mu)">No data</div>';
+    });
+    return;
+  }
+  var bQty = {}, bRev = {}, pQty = {}, totR = 0, totU = 0;
+  hist.forEach(function(q) {
+    (q.rows || []).forEach(function(r) {
+      if (!r.name) return;
+      var brand = (r.name.split(' - ')[0] || 'Other').trim();
+      var qty = r.qty || 0;
+      var rev = r.amt || (r.rate || 0) * qty;
+      bQty[brand]   = (bQty[brand]   || 0) + qty;
+      bRev[brand]   = (bRev[brand]   || 0) + rev;
+      pQty[r.name]  = (pQty[r.name]  || 0) + qty;
+      totR += rev; totU += qty;
+    });
+  });
+  var tb = Object.entries(bQty).sort(function(a, b) { return b[1] - a[1]; })[0];
+  kEl.innerHTML =
+    kpi('Quotations',   hist.length,             'All time') +
+    kpi('Revenue',      '₹' + (totR/1000).toFixed(1) + 'K', 'After tax') +
+    kpi('Top Brand',    tb ? tb[0] : '—',        tb ? tb[1] + ' units' : '') +
+    kpi('Total Units',  totU,                    'All items');
+
+  function bars(elId, data, color, vf) {
+    var el = document.getElementById(elId);
+    if (!data.length) { el.innerHTML = '<div style="color:var(--mu);font-size:11px;padding:8px">No data</div>'; return; }
+    var mx = data[0][1] || 1;
+    el.innerHTML = data.map(function(d) {
+      var pct = Math.max(4, Math.round(d[1] / mx * 100));
+      return '<div class="br"><div class="bl" title="' + X(d[0]) + '">' + X(d[0]) + '</div>' +
+        '<div class="bt"><div class="bf" style="width:' + pct + '%;background:' + color + '">' + vf(d[1]) + '</div></div></div>';
+    }).join('');
+  }
+  bars('ch-br', Object.entries(bQty).sort(function(a,b){return b[1]-a[1];}).slice(0,8), 'var(--ac)',  function(v){return v+'u';});
+  bars('ch-pr', Object.entries(pQty).sort(function(a,b){return b[1]-a[1];}).slice(0,8), 'var(--ac2)', function(v){return v+'u';});
+  bars('ch-rv', Object.entries(bRev).sort(function(a,b){return b[1]-a[1];}).slice(0,8), 'var(--ok)',  function(v){return '₹'+(v>=1000?(v/1000).toFixed(1)+'K':v.toFixed(0));});
+
+  var wk = {};
+  hist.forEach(function(q) {
+    var d = new Date(q.date), m = new Date(d);
+    m.setDate(d.getDate() - d.getDay() + 1);
+    var k = m.toISOString().slice(0, 10);
+    wk[k] = (wk[k] || 0) + 1;
+  });
+  var wks = Object.keys(wk).sort().slice(-8);
+  var mx2 = Math.max.apply(null, wks.map(function(w) { return wk[w] || 0; }).concat([1]));
+  var tlEl = document.getElementById('ch-tl');
+  if (wks.length) {
+    tlEl.innerHTML = '<div class="tlrow">' + wks.map(function(w) {
+      var v = wk[w] || 0, h = Math.max(4, Math.round(v / mx2 * 100));
+      var lb = new Date(w).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      return '<div class="tlcol"><div style="font-size:10px;color:var(--mu)">' + v + '</div>' +
+        '<div class="tlbar" style="height:' + h + 'px"></div><div class="tllb">' + lb + '</div></div>';
+    }).join('') + '</div>';
+  } else { tlEl.innerHTML = '<div style="color:var(--mu);font-size:11px;padding:8px">No data</div>'; }
+}
+
+function kpi(label, val, sub) {
+  return '<div class="kpi"><div class="kl">' + label + '</div><div class="kv">' + val + '</div><div class="ks">' + (sub || '') + '</div></div>';
+}
+
+// ================================================================
+// DATABASE
+// ================================================================
+function renderFolders() {
+  var row = document.getElementById('frow');
+  if (!row) return;
+  row.innerHTML = '';
+  function mk(label, icon, name, cnt) {
+    var d = document.createElement('div');
+    d.className = 'fcard' + (curFolder === name ? ' on' : '');
+    d.innerHTML = '<span style="font-size:15px">' + icon + '</span><span>' + X(label) + '</span><span class="fcnt">' + cnt + '</span>';
+    d.onclick = function() { curFolder = name; renderFolders(); renderDB(); };
+    return d;
+  }
+  row.appendChild(mk('All Items', '📂', 'all', DB.length));
+  folders.filter(function(f) { return f !== 'all'; }).forEach(function(f) {
+    var cnt = DB.filter(function(d) { return d.folder === f; }).length;
+    var card = mk(f, '📁', f, cnt);
+    var del = document.createElement('button');
+    del.textContent = '✕';
+    del.title = 'Delete folder';
+    del.style.cssText = 'background:none;border:none;cursor:pointer;color:var(--mu);font-size:10px;padding:0 0 0 5px';
+    del.onclick = function(e) { e.stopPropagation(); delFolder(f); };
+    card.appendChild(del);
+    row.appendChild(card);
+  });
+}
+
+function newFolder() {
+  var n = prompt('Folder name:');
+  if (!n || !n.trim()) return;
+  n = n.trim();
+  if (folders.indexOf(n) >= 0) { toast('Already exists', 'err'); return; }
+  folders.push(n);
+  lsSet(LS_FOLDERS, folders);
+  if (getScriptUrl()) api('save_folders', { folders: folders }).catch(function() {});
+  renderFolders();
+  toast('Folder created: ' + n);
+}
+
+function delFolder(f) {
+  if (!confirm('Delete folder "' + f + '"? Items move to All Items.')) return;
+  DB.forEach(function(d) { if (d.folder === f) d.folder = 'all'; });
+  folders = folders.filter(function(x) { return x !== f; });
+  if (curFolder === f) curFolder = 'all';
+  lsSet(LS_DB, DB); lsSet(LS_FOLDERS, folders);
+  renderFolders(); renderDB();
+  toast('Folder deleted');
+}
+
+function renderDB() {
+  var q     = (document.getElementById('db-q')     && document.getElementById('db-q').value     || '').toLowerCase();
+  var brand = (document.getElementById('db-brand') && document.getElementById('db-brand').value || '');
+  var brands = []; var bset = {};
+  DB.forEach(function(d) { if (d.brand && !bset[d.brand]) { bset[d.brand] = 1; brands.push(d.brand); } });
+  brands.sort();
+  var sel = document.getElementById('db-brand');
+  if (sel) {
+    var cur = sel.value;
+    sel.innerHTML = '<option value="">All Brands</option>' + brands.map(function(b) {
+      return '<option value="' + X(b) + '"' + (b === cur ? ' selected' : '') + '>' + X(b) + '</option>';
+    }).join('');
+  }
+  var items = DB;
+  if (curFolder !== 'all') items = items.filter(function(d) { return d.folder === curFolder; });
+  if (q) items = items.filter(function(d) { return ((d.name||'')+(d.code||'')+(d.brand||'')).toLowerCase().indexOf(q) >= 0; });
+  if (brand) items = items.filter(function(d) { return d.brand === brand; });
+  var cnt = document.getElementById('db-cnt');
+  if (cnt) cnt.textContent = '(' + items.length + ')';
+  var body = document.getElementById('db-body');
+  if (!body) return;
+  var fOpts = folders.map(function(f) { return '<option value="' + X(f) + '">' + X(f === 'all' ? 'All Items' : f) + '</option>'; }).join('');
+  body.innerHTML = items.slice(0, 400).map(function(d, i) {
+    var fO = folders.map(function(f) { return '<option value="' + X(f) + '"' + (d.folder === f ? ' selected' : '') + '>' + X(f === 'all' ? 'All Items' : f) + '</option>'; }).join('');
+    return '<tr>' +
+      '<td style="color:var(--mu);font-size:11px;text-align:center">' + (i+1) + '</td>' +
+      '<td><input type="text" value="' + X(d.name||'') + '" onchange="upd(' + d.id + ','name',this.value)"></td>' +
+      '<td><input type="text" value="' + X(d.code||'') + '" onchange="upd(' + d.id + ','code',this.value)"></td>' +
+      '<td><input type="number" value="' + (d.price||'') + '" onchange="upd(' + d.id + ','price',parseFloat(this.value)||null)"></td>' +
+      '<td><input type="text" value="' + X(d.brand||'') + '" onchange="upd(' + d.id + ','brand',this.value)"></td>' +
+      '<td><select onchange="upd(' + d.id + ','folder',this.value)">' + fO + '</select></td>' +
+      '<td><button style="background:none;border:none;cursor:pointer;color:var(--mu);font-size:12px" onclick="delItem(' + d.id + ')">✕</button></td>' +
+    '</tr>';
+  }).join('') + (items.length > 400 ? '<tr><td colspan="7" style="text-align:center;color:var(--mu);padding:10px">Showing 400 of ' + items.length + '. Use search to narrow.</td></tr>' : '');
+}
+
+function upd(id, field, val) {
+  var item = DB.find(function(d) { return d.id === id; });
+  if (item) { item[field] = val; lsSet(LS_DB, DB); }
+}
+
+function delItem(id) {
+  if (!confirm('Delete this item?')) return;
+  DB = DB.filter(function(d) { return d.id !== id; });
+  lsSet(LS_DB, DB);
+  if (getScriptUrl()) api('delete_item', { id: id }).catch(function() {});
+  renderDB(); renderFolders();
+}
+
+function addItem() {
+  var newId = Date.now();
+  DB.push({ id: newId, name: 'New Item', code: '', price: null, brand: '', folder: curFolder === 'all' ? 'all' : curFolder });
+  lsSet(LS_DB, DB);
+  renderDB(); renderFolders();
+  toast('Item added — edit inline');
+}
+
+// ================================================================
+// FILE UPLOAD (Database)
+// ================================================================
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dz').classList.remove('drag');
+  var file = e.dataTransfer.files[0];
+  if (file) handleDBFile2(file);
+}
+
+function handleDBFile(e) { var f = e.target.files[0]; if (f) handleDBFile2(f); e.target.value = ''; }
+
+function handleDBFile2(file) {
+  if (file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf') {
+    parseDBPDF(file);
+  } else {
+    parseDBExcel(file);
+  }
+}
+
+function parseDBExcel(file) {
+  var pb = document.getElementById('xpb'), pf = document.getElementById('xpf');
+  pb.classList.add('show'); pf.style.width = '20%';
+  toast('Parsing file…');
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    pf.style.width = '60%';
+    try {
+      var wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      parsedItems = [];
+      wb.SheetNames.forEach(function(sn) {
+        var ws = wb.Sheets[sn];
+        var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        parsedItems = parsedItems.concat(extractTables(rows, sn));
+      });
+      pf.style.width = '100%';
+      setTimeout(function() { pb.classList.remove('show'); }, 500);
+      showPreview();
+      toast('Found ' + parsedItems.length + ' items', 'ok');
+    } catch(err) { pb.classList.remove('show'); toast('Error: ' + err.message, 'err'); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+async function parseDBPDF(file) {
+  var key = getGemKey();
+  if (!key) { toast('Add a Gemini API key in Config first', 'err'); return; }
+  var pdfs = document.getElementById('pdfs');
+  function st(icon, title, msg, pct) {
+    document.getElementById('pdf-icon').textContent = icon;
+    document.getElementById('pdf-title').textContent = title;
+    document.getElementById('pdf-msg').innerHTML = msg;
+    document.getElementById('pdf-pf').style.width = pct + '%';
+    pdfs.classList.add('show');
+  }
+  try {
+    st('🤖', 'Reading PDF…', 'Converting for AI…', 10);
+    var base64 = await new Promise(function(res, rej) {
+      var r = new FileReader();
+      r.onload = function() { res(r.result.split(',')[1]); };
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+    var sz = Math.round(base64.length * 0.75 / 1024);
+    st('🧠', 'Gemini AI Extracting…',
+      'Sending <b>' + X(file.name) + '</b> (' + sz + ' KB) to Gemini 2.5 Flash.<br>' +
+      'Handles multi-pole, multi-colour, complex tables.<br>' +
+      '<span style="color:var(--ac)">May take 15–40s for large catalogues…</span>', 30);
+
+    var prompt = 'Extract ALL product entries from this electrical price list PDF into a JSON array.
+
+RULES:
+1. MULTI-COLUMN TABLES: Each row may have multiple Reference+Price pairs (e.g. 1P Ref, 1P MRP, 2P Ref, 2P MRP). Create ONE entry per non-empty Ref+Price pair.
+2. MULTI-COLOUR: Columns like "Ref White, MRP White, Ref Grey, MRP Grey" → one entry per colour, append colour to name.
+3. RCCB: combine current+sensitivity in name e.g. "25A 30mA RCCB 2P".
+4. Use section heading as brand. Skip rows where Reference is "-" or blank.
+5. Return ONLY a raw JSON array. No markdown. No explanation.
+Format: [{"name":"...","code":"...","price":number_or_null,"brand":"..."}]';
+
+    var resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + key, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ inline_data: { mime_type: 'application/pdf', data: base64 } }, { text: prompt }] }],
+        generationConfig: { maxOutputTokens: 16000, temperature: 0 }
+      })
+    });
+    st('⚡', 'Parsing response…', 'Processing AI output…', 75);
+    if (!resp.ok) { var er = await resp.json(); throw new Error((er.error && er.error.message) || 'Gemini error ' + resp.status); }
+    var data = await resp.json();
+    var txt = ((data.candidates || [])[0] || {}).content;
+    txt = (txt && txt.parts ? txt.parts.map(function(p) { return p.text || ''; }).join('') : '').trim();
+    txt = txt.replace(/^```json[
+]*/i, '').replace(/^```[
+]*/i, '').replace(/[
+]*```\s*$/, '').trim();
+    var extracted;
+    try { extracted = JSON.parse(txt); } catch(e) {
+      var m = txt.match(/\[\s*\{[\s\S]*\}\s*\]/);
+      if (m) { try { extracted = JSON.parse(m[0]); } catch(e2) { throw new Error('Parse failed: ' + txt.slice(0, 200)); } }
+      else throw new Error('No JSON array found: ' + txt.slice(0, 200));
+    }
+    if (!Array.isArray(extracted)) throw new Error('Non-array response');
+    parsedItems = extracted.filter(function(d) { return d && d.name && String(d.name).trim().length > 1; }).map(function(d) {
+      return { name: String(d.name).trim(), code: d.code ? String(d.code).trim() : '', price: (d.price != null && !isNaN(parseFloat(d.price))) ? parseFloat(d.price) : null, brand: d.brand ? String(d.brand).trim() : '' };
+    });
+    var foundBrands = []; var bs = {};
+    parsedItems.forEach(function(p) { if (p.brand && !bs[p.brand]) { bs[p.brand] = 1; foundBrands.push(p.brand); } });
+    st('✅', 'Done! ' + parsedItems.length + ' items', 'Brands: <b>' + X(foundBrands.slice(0, 5).join(', ')) + '</b>. Review below then Import.', 100);
+    setTimeout(function() { pdfs.classList.remove('show'); }, 3000);
+    showPreview();
+    toast('Extracted ' + parsedItems.length + ' items', 'ok');
+  } catch(err) {
+    st('❌', 'Error', '<span style="color:var(--ac3)">' + X(err.message) + '</span><br>Tip: PDF must have selectable text, not a scanned image.', 0);
+    toast('PDF error: ' + err.message, 'err');
+  }
+}
+
+function extractTables(rows, sn) {
+  var items = [], brand = sn, inT = false, hc = {};
+  var isP = function(v) { var n = parseFloat(v); return !isNaN(n) && n > 0 && n < 1000000; };
+  var isC = function(v) { var s = String(v).trim(); return /^\d{4,7}[A-Z]?$/.test(s) || /^[A-Z]\d{4,}/.test(s); };
+  var isH = function(row) { var j = row.map(function(c) { return String(c).toUpperCase(); }).join('|'); return j.indexOf('CODE') >= 0 || j.indexOf('ITEM') >= 0 || j.indexOf('LIST') >= 0 || j.indexOf('PRICE') >= 0; };
+  for (var r = 0; r < rows.length; r++) {
+    var row = rows[r].map(function(c) { return String(c).trim(); });
+    if (!row.filter(function(c) { return c; }).length) continue;
+    if (isH(row)) {
+      hc = {};
+      row.forEach(function(cell, ci) {
+        var up = cell.toUpperCase();
+        if ((up.indexOf('ITEM') >= 0 || up.indexOf('NAME') >= 0 || up.indexOf('DESCRIPTION') >= 0) && hc.name === undefined) hc.name = ci;
+        if ((up.indexOf('CODE') >= 0 || up === 'MYLINC' || up === 'MYRIUS' || up === 'RTR' || up === 'BRITZY' || up === 'LYNCUS') && hc.code === undefined) hc.code = ci;
+        if ((up.indexOf('LIST') >= 0 || up.indexOf('PRICE') >= 0 || up.indexOf('MRP') >= 0 || up.indexOf('RATE') >= 0) && hc.price === undefined) hc.price = ci;
+      });
+      if (row[0] && row[0].toUpperCase().indexOf('CODE') < 0 && row[0].toUpperCase().indexOf('ITEM') < 0 && !/^\d/.test(row[0])) brand = row[0];
+      inT = true; continue;
+    }
+    if (!inT) {
+      if (isC(row[0]) && row[1] && isP(row[2])) items.push({ name: row[1], code: row[0], price: parseFloat(row[2]), brand: brand });
+      else if (row[0] && row.filter(function(c) { return c; }).length <= 3 && !isC(row[0]) && !isP(row[0])) brand = row[0];
+      continue;
+    }
+    var nc = hc.name !== undefined ? hc.name : 1;
+    var cc = hc.code !== undefined ? hc.code : 0;
+    var pc = hc.price !== undefined ? hc.price : 2;
+    var nm = row[nc] || '', cd = row[cc] || '', pr = row[pc];
+    if (!nm || nm.toUpperCase() === 'ITEM' || nm.toUpperCase() === 'ITEM NAME') continue;
+    items.push({ name: String(nm), code: String(cd), price: isP(pr) ? parseFloat(pr) : null, brand: brand });
+  }
+  return items.filter(function(i) { return i.name && i.name.length > 1; });
+}
+
+function showPreview() {
+  var pp = document.getElementById('pprev'); if (!pp) return;
+  pp.classList.add('show');
+  var cnt = document.getElementById('pp-cnt'); if (cnt) cnt.textContent = parsedItems.length + ' items detected';
+  var body = document.getElementById('pp-body'); if (!body) return;
+  body.innerHTML = parsedItems.slice(0, 100).map(function(d) {
+    return '<tr><td style="padding:5px 9px">' + X(d.name) + '</td><td style="padding:5px 9px">' + X(d.code||'') + '</td>' +
+      '<td style="padding:5px 9px">' + (d.price != null ? '₹' + d.price : '—') + '</td>' +
+      '<td style="padding:5px 9px"><span class="bdg">' + X(d.brand||'') + '</span></td></tr>';
+  }).join('') + (parsedItems.length > 100 ? '<tr><td colspan="4" style="text-align:center;color:var(--mu);padding:8px">…and ' + (parsedItems.length - 100) + ' more</td></tr>' : '');
+}
+
+function importParsed() {
+  if (!parsedItems.length) return;
+  var folder = curFolder === 'all' ? 'all' : curFolder;
+  var added = 0;
+  parsedItems.forEach(function(d) {
+    var dup = d.code && DB.find(function(e) { return e.code && e.code === d.code; });
+    if (dup) { if (d.price) dup.price = d.price; if (d.name) dup.name = d.name; }
+    else { DB.push({ id: Date.now() + Math.random(), name: d.name, code: d.code || '', price: d.price, brand: d.brand || '', folder: folder }); added++; }
+  });
+  lsSet(LS_DB, DB);
+  cancelImport(); renderFolders(); renderDB();
+  toast('Imported ' + added + ' new (' + (parsedItems.length - added) + ' updated)', 'ok');
+}
+
+function cancelImport() {
+  var pp = document.getElementById('pprev');
+  if (pp) pp.classList.remove('show');
+  parsedItems = [];
+}
+
+// ================================================================
+// QUOTE FROM UPLOAD
+// ================================================================
+function handleQuoteFile(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  e.target.value = '';
+  var st = document.getElementById('qu-status');
+  if (st) { st.style.display = 'block'; st.textContent = 'Reading file…'; }
+  readQuoteFile(file).then(function(rows) {
+    if (!rows.length) { if (st) st.textContent = 'No items found.'; return; }
+    rows.forEach(function(r) { addRow(r); });
+    ensureGhost(); calcTotals();
+    var cnt = document.getElementById('qu-count');
+    if (cnt) cnt.textContent = rows.length + ' rows added';
+    if (st) st.style.display = 'none';
+    toast(rows.length + ' rows added to quotation', 'ok');
+  }).catch(function(err) {
+    if (st) st.textContent = 'Error: ' + err.message;
+  });
+}
+
+async function readQuoteFile(file) {
+  var name = file.name.toLowerCase();
+  var rows = [];
+  if (name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv')) {
+    var buf = await file.arrayBuffer();
+    var wb  = XLSX.read(new Uint8Array(buf), { type: 'array' });
+    var ws  = wb.Sheets[wb.SheetNames[0]];
+    var data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    data.forEach(function(row) {
+      if (!row[0] && !row[1]) return;
+      var name2 = String(row[1] || row[0] || '').trim();
+      var qty   = parseFloat(row[2]) || 1;
+      if (!name2) return;
+      var match = DB.find(function(d) { return d.name && d.name.toLowerCase() === name2.toLowerCase(); });
+      rows.push({ name: match ? ((match.brand ? match.brand + ' - ' : '') + match.name) : name2, code: match ? match.code : '', price: match ? match.price : (parseFloat(row[3]) || ''), qty: qty });
+    });
+  }
+  return rows;
+}
+
+// ================================================================
+// TOAST & UTILS
+// ================================================================
+function toast(msg, type) {
+  var el = document.getElementById('toast');
+  el.textContent = (type === 'ok' ? '✓ ' : type === 'err' ? '✕ ' : '⚡ ') + msg;
+  el.className = 'show' + (type ? ' ' + type : '');
+  clearTimeout(toastT);
+  toastT = setTimeout(function() { el.classList.remove('show'); }, 2800);
+}
+
+function X(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ================================================================
+// RUN
+// ================================================================
+init();
+</script>
+</body>
+</html>

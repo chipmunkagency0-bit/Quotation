@@ -566,23 +566,53 @@ function setSyncStatus(state, label) {
   if (lbl) lbl.textContent = label || '';
 }
 
-async function api(action, body) {
-  var url = getScriptUrl();
-  if (!url) return null;
-  try {
-    var res;
+// JSONP-based API call — bypasses CORS completely
+// Apps Script returns JSON wrapped in a callback function
+function api(action, body) {
+  return new Promise(function(resolve) {
+    var url = getScriptUrl();
+    if (!url) { resolve(null); return; }
+
+    // Build params
+    var params = { action: action };
     if (body) {
-      body.action = action;
-      res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    } else {
-      res = await fetch(url + '?action=' + action);
+      Object.keys(body).forEach(function(k) { params[k] = body[k]; });
     }
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return await res.json();
-  } catch(e) {
-    console.warn('API error (' + action + '):', e.message);
-    return null;
-  }
+
+    // Use JSONP: inject a <script> tag, Apps Script calls our callback
+    var cbName = '_cb' + Date.now() + Math.floor(Math.random() * 9999);
+    var timeout = setTimeout(function() {
+      cleanup();
+      console.warn('API timeout (' + action + ')');
+      resolve(null);
+    }, 15000);
+
+    function cleanup() {
+      clearTimeout(timeout);
+      try { delete window[cbName]; } catch(e) {}
+      var s = document.getElementById(cbName);
+      if (s) s.parentNode.removeChild(s);
+    }
+
+    window[cbName] = function(data) {
+      cleanup();
+      resolve(data);
+    };
+
+    // Encode all params into URL
+    var qs = Object.keys(params).map(function(k) {
+      return encodeURIComponent(k) + '=' + encodeURIComponent(
+        typeof params[k] === 'object' ? JSON.stringify(params[k]) : params[k]
+      );
+    }).join('&');
+    qs += '&callback=' + cbName;
+
+    var script = document.createElement('script');
+    script.id = cbName;
+    script.src = url + '?' + qs;
+    script.onerror = function() { cleanup(); resolve(null); };
+    document.head.appendChild(script);
+  });
 }
 
 async function connectSheets() {

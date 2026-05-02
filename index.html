@@ -201,28 +201,31 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
 
 /* PRINT */
+/* Remove URL/date/page from ALL print outputs */
+@page{
+  margin:15mm 14mm 10mm 14mm;
+  size:A4;
+}
 @media print{
-  *{font-family:Arial,sans-serif!important}
+  *{font-family:Arial,sans-serif!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
   body{background:#fff!important;color:#000!important;font-size:11px}
   #toast,nav,.arow,.cX,.np,.ghost,.pdfs,.pprev,.dz,.frow,.dbc,.dbw,
   #page-database,#page-history,#page-analytics,
   .ctitle,.fgrid,.tgrid,.modal,.ptitle,.psub,
   #upload-from-file-card{display:none!important}
-  #page-quotation{display:block!important;padding:10mm 12mm}
+  #page-quotation{display:block!important;padding:0}
   #page-quotation::before{content:"ME QUOTATION";display:block;font-size:19px;font-weight:bold;text-align:center;letter-spacing:3px;margin-bottom:14px;border-bottom:2px solid #000;padding-bottom:9px}
-  /* Kill browser header/footer (URL, date, page number) */
-  @page{margin:15mm 14mm 10mm 14mm;size:A4}
-  head{display:none!important}
   .tgrid{display:grid!important;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-top:12px}
   .tbox{background:#f5f5f5!important;border:1px solid #ccc!important;padding:8px 11px;text-align:center}
   .tbox .tl{font-size:9px;color:#555!important;text-transform:uppercase;margin-bottom:3px}
   .tbox .tv{font-size:13px;font-weight:bold;color:#000!important}
-  .card{border:none!important;background:#fff!important;padding:0!important}
-  thead th{background:#222!important;color:#fff!important;font-size:10px;padding:6px 7px}
+  .card{border:none!important;background:#fff!important;padding:0!important;margin-bottom:10px}
+  thead th{background:#222!important;color:#fff!important;font-size:10px;padding:6px 7px;text-align:left}
   tbody tr{border-bottom:1px solid #ddd}
+  tbody tr.ghost{display:none!important}
   tbody td{padding:5px 7px;font-size:11px;color:#000!important}
-  tbody td input{border:none!important;background:transparent!important;color:#000!important;font-size:11px;padding:0}
-  .csn{color:#555!important;font-size:10px}
+  tbody td input{border:none!important;background:transparent!important;color:#000!important;font-size:11px;padding:0;width:100%}
+  .csn{color:#555!important;font-size:10px;text-align:center}
 }
 </style>
 </head>
@@ -313,11 +316,13 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
     </p>
     <div class="arow" style="margin-top:0;flex-wrap:wrap">
       <button class="btn btn-p btn-sm" onclick="document.getElementById('qu-cam').click()">📷 Take Photo</button>
-      <button class="btn btn-g btn-sm" onclick="document.getElementById('qu-gal').click()">🖼 Gallery / File</button>
+      <button class="btn btn-g btn-sm" onclick="document.getElementById('qu-gal').click()">🖼 Gallery / Image</button>
+      <button class="btn btn-g btn-sm" onclick="document.getElementById('qu-xls').click()">📋 Invoice / Excel</button>
       <span class="tag" id="qu-count" style="font-size:11px"></span>
     </div>
     <input type="file" id="qu-cam" accept="image/*" capture="environment" style="display:none" onchange="handleQuotePhoto(event)">
     <input type="file" id="qu-gal" accept="image/*,.pdf" style="display:none" onchange="handleQuotePhoto(event)">
+    <input type="file" id="qu-xls" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleQuoteExcel(event)">
     <!-- Status box -->
     <div id="qu-status-box" style="display:none;margin-top:14px;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:13px">
       <div style="display:flex;align-items:center;gap:9px;margin-bottom:6px">
@@ -1404,7 +1409,7 @@ async function parseDBPDF(file) {
               { text: prompt }
             ]
           }],
-          generationConfig: { maxOutputTokens: 16000, temperature: 0 }
+          generationConfig: { maxOutputTokens: 65535, temperature: 0 }
         })
       }
     );
@@ -1620,22 +1625,28 @@ async function handleQuotePhoto(e) {
       'Analysing your handwritten quotation request…<br>' +
       '<span style="color:var(--ac)">This takes 5–15 seconds.</span>', 40);
 
+    // Build a lookup string from DB for Gemini to match against
+    var dbLookup = DB.slice(0, 300).map(function(d) {
+      return (d.code ? d.code : '') + '|' + (d.brand ? d.brand + ' ' : '') + d.name + (d.price ? '|₹' + d.price : '');
+    }).join('\n');
+
     var prompt = [
-      'This is a handwritten quotation requirement or order list for electrical items.',
-      'Extract every item the customer wants as a JSON array.',
+      'This image shows a handwritten or printed quotation request, order list, or invoice for electrical items.',
+      'Extract every line item as a JSON array.',
       '',
-      'For each item find:',
-      '- name: the item description (clean it up, fix spelling if needed)',
-      '- qty: quantity requested (default 1 if not mentioned)',
-      '- price: unit price if written, otherwise null',
-      '- code: product code if written, otherwise empty string',
+      'For each item extract:',
+      '- name: the item/product description. Clean up abbreviations where obvious (e.g. SW = Switch, SOC = Socket, BP = Bell Push, PLTE = Plate, REG = Regulator)',
+      '- code: the product/part code if visible (e.g. 675513, EZ9F71106). This is the most important field.',
+      '- qty: quantity (number). Default to 1 if not shown.',
+      '- price: unit price as a number if shown, otherwise null.',
       '',
-      'Also try to match each item to this product database by looking for similar names:',
-      DB.slice(0, 200).map(function(d) { return (d.brand ? d.brand + ' ' : '') + d.name + (d.code ? ' (' + d.code + ')' : '') + (d.price ? ' ₹' + d.price : ''); }).join(', '),
+      'MATCHING: Try to match each item against this product database using the code first, then the name:',
+      dbLookup,
       '',
-      'If you find a match, use the database code and price.',
-      'Return ONLY a valid JSON array, no markdown, no explanation.',
-      'Format: [{"name":"item name","qty":1,"price":null,"code":""}]'
+      'If you find a match by code or name, use that matched code and price.',
+      'Return ONLY a raw JSON array. No markdown. No explanation.',
+      'Format: [{"name":"item name","code":"part code or empty","qty":1,"price":null}]',
+      'Extract ALL items. Do not skip any row.'
     ].join('\n');
 
     var resp = await fetch(
@@ -1650,7 +1661,7 @@ async function handleQuotePhoto(e) {
               { text: prompt }
             ]
           }],
-          generationConfig: { maxOutputTokens: 4000, temperature: 0 }
+          generationConfig: { maxOutputTokens: 8000, temperature: 0 }
         })
       }
     );
@@ -1807,6 +1818,21 @@ function toast(msg, type) {
 function X(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// ================================================================
+// PRINT — suppress browser URL/header/footer
+// ================================================================
+window.onbeforeprint = function() {
+  // Inject a style that collapses the browser's header/footer margin area
+  var s = document.getElementById('_print_override');
+  if (!s) {
+    s = document.createElement('style');
+    s.id = '_print_override';
+    // Empty @page with zero margins for header/footer area
+    s.textContent = '@page { margin: 12mm 14mm !important; } @media print { #toast, .ptitle, .psub, #upload-from-file-card { display: none !important; } }';
+    document.head.appendChild(s);
+  }
+};
 
 // ================================================================
 // RUN

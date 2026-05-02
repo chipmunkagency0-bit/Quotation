@@ -686,15 +686,34 @@ async function fullSync() {
 }
 
 async function pushItems() {
-  var r = await api('save_items', { items: DB });
-  return r && r.ok;
+  // Send in chunks of 50 to avoid URL length limits with JSONP
+  var CHUNK = 50;
+  var total = DB.length;
+  
+  // First clear existing items
+  var clearOk = await api('save_items', { items: [], clear: true });
+  if (!clearOk || !clearOk.ok) return false;
+
+  // Send chunks
+  for (var i = 0; i < total; i += CHUNK) {
+    var chunk = DB.slice(i, i + CHUNK);
+    var r = await api('append_items', { items: chunk });
+    if (!r || !r.ok) return false;
+  }
+  return true;
 }
 
 async function syncItemsToSheet() {
   setSyncStatus('spin', 'pushing');
-  var ok = await pushItems();
-  setSyncStatus(ok ? 'ok' : 'err', ok ? 'pushed' : 'error');
-  toast(ok ? 'Items pushed to Sheet' : 'Push failed', ok ? 'ok' : 'err');
+  toast('Syncing ' + DB.length + ' items to Sheet…');
+  try {
+    var ok = await pushItems();
+    setSyncStatus(ok ? 'ok' : 'err', ok ? 'synced' : 'error');
+    toast(ok ? '✓ All ' + DB.length + ' items synced to Sheet' : 'Push failed — check connection', ok ? 'ok' : 'err');
+  } catch(e) {
+    setSyncStatus('err', 'error');
+    toast('Push error: ' + e.message, 'err');
+  }
 }
 
 // ================================================================
@@ -1758,9 +1777,9 @@ function importParsed() {
     }
   });
   lsSet(LS_DB, DB);
-  // Push to Sheet in background
-  if (getScriptUrl()) api('save_items', { items: DB }).catch(function() {});
   cancelImport();
+  // Push to Sheet in background using chunked method
+  if (getScriptUrl()) pushItems().catch(function(e){ console.warn('Sheet push failed:', e); });
   renderFolders();
   renderDB();
   toast('Imported ' + added + ' new, ' + updated + ' updated', 'ok');

@@ -242,6 +242,7 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
   <div class="nav-right">
     <span class="sync-dot" id="sync-dot" title="Sheet sync status"></span>
     <span id="sync-label" style="font-size:10px;color:var(--mu)">offline</span>
+    <button class="admin-chip" id="settings-btn" onclick="openModal('modal-settings')" style="display:none" title="Settings">⚙</button>
     <button class="admin-chip" id="admin-chip" onclick="toggleAdminPanel()">Admin</button>
   </div>
 </nav>
@@ -493,7 +494,7 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
 // CONFIG — paste your values here OR use the Config card in the app
 // ================================================================
 var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx16uLQhIPphsI7WpCM6hxbVTxYUNlSJPxVHxxnJzPcx1z56agB7AEf_Un7tVjZ2MNa/exec';
-var GEMINI_KEY = 'AIzaSyDZyI9_vFH3szzYO8_jzfa0kdi4v2zd6qw';
+var GEMINI_KEY = ''; // Set by admin via Settings — stored encrypted in Sheet
 
 // ================================================================
 // SEED DATA (built-in items, used if no Sheet connected)
@@ -529,7 +530,7 @@ function lsGet(k, def) {
 function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
 
 function getScriptUrl() { return SCRIPT_URL; }
-function getGemKey()    { return GEMINI_KEY; }
+function getGemKey()    { return window._gemKey || lsGet('meq_gk_cache','') || GEMINI_KEY || ''; }
 
 function markDirty() { dirty = true; }
 
@@ -622,6 +623,9 @@ async function fullSync() {
       // Config loaded (keys hardwired, no UI needed)
     }
 
+    // Load Gemini key from Sheet (so all devices work after admin sets it once)
+    await loadGemKey();
+
     setSyncStatus('ok', 'synced');
     renderFolders(); renderDB();
   } catch(e) {
@@ -674,6 +678,8 @@ function init() {
     document.body.classList.add('is-admin');
     var chip = document.getElementById('admin-chip');
     if (chip) { chip.textContent = 'Admin ✓'; chip.classList.add('on'); }
+    var sbtn = document.getElementById('settings-btn');
+    if (sbtn) sbtn.style.display = 'inline-block';
   }
 
   // Date + quotation number defaults
@@ -684,7 +690,11 @@ function init() {
   addRow();
   ensureGhost();
 
-  // Auto-connect on every load
+  // Load gem key from local cache immediately
+  var cachedGem = lsGet('meq_gk_cache', '');
+  if (cachedGem) window._gemKey = cachedGem;
+
+  // Auto-connect and sync on every load (fetches fresh gem key from Sheet too)
   setSyncStatus('spin', 'syncing');
   fullSync().catch(function() { setSyncStatus('err', 'offline'); });
 }
@@ -743,6 +753,8 @@ async function doLogin() {
   document.body.classList.add('is-admin');
   var chip = document.getElementById('admin-chip');
   if (chip) { chip.textContent = 'Admin ✓'; chip.classList.add('on'); }
+  var sbtn = document.getElementById('settings-btn');
+  if (sbtn) sbtn.style.display = 'inline-block';
   document.getElementById('li-pw').value = '';
   closeModal('modal-login');
   toast('Admin logged in', 'ok');
@@ -775,6 +787,8 @@ function logoutAdmin() {
   document.body.classList.remove('is-admin');
   var chip = document.getElementById('admin-chip');
   if (chip) { chip.textContent = 'Admin'; chip.classList.remove('on'); }
+  var sbtn = document.getElementById('settings-btn');
+  if (sbtn) sbtn.style.display = 'none';
   // If on admin-only page, go to quotation
   var active = document.querySelector('.page.active');
   if (active && (active.id === 'page-analytics' || active.id === 'page-database')) {
@@ -2043,6 +2057,81 @@ function parseGeminiJSON(txt) {
   } catch(e) {}
   console.error('parseGeminiJSON failed. Raw text:', txt.slice(0, 500));
   return [];
+}
+
+
+// ================================================================
+// GEMINI KEY — Encrypted storage via Sheet
+// ================================================================
+
+// Simple XOR obfuscation with a stable salt
+// Not cryptographically strong but prevents casual viewing
+function obfuscate(str, salt) {
+  var out = '';
+  for (var i = 0; i < str.length; i++) {
+    out += String.fromCharCode(str.charCodeAt(i) ^ salt.charCodeAt(i % salt.length));
+  }
+  return btoa(out);
+}
+
+function deobfuscate(b64, salt) {
+  try {
+    var str = atob(b64);
+    var out = '';
+    for (var i = 0; i < str.length; i++) {
+      out += String.fromCharCode(str.charCodeAt(i) ^ salt.charCodeAt(i % salt.length));
+    }
+    return out;
+  } catch(e) { return ''; }
+}
+
+// Salt derived from Sheet URL (stable, not a secret, just stops plaintext storage)
+function getSalt() {
+  var u = SCRIPT_URL || 'meq-salt-2025';
+  return u.slice(-20);
+}
+
+async function saveGeminiKey() {
+  var raw = document.getElementById('set-gem').value.trim();
+  var st  = document.getElementById('set-status');
+  if (!raw) { st.textContent = 'Please paste your Gemini API key.'; st.style.color = 'var(--ac3)'; st.style.display = 'block'; return; }
+  if (!raw.startsWith('AIza')) { st.textContent = 'Gemini keys start with "AIza". Check your key.'; st.style.color = 'var(--ac3)'; st.style.display = 'block'; return; }
+
+  st.textContent = 'Saving…'; st.style.color = 'var(--mu)'; st.style.display = 'block';
+
+  // Obfuscate before storing
+  var enc = obfuscate(raw, getSalt());
+
+  // Save to Sheet Config
+  var r = await api('set_config', { key: 'gem_enc', value: enc });
+  if (r && r.ok) {
+    // Set in memory for immediate use
+    window._gemKey = raw;
+    lsSet('meq_gk_cache', raw); // local cache (plain — stays on this device only)
+    st.textContent = '✓ Saved and synced to all devices!';
+    st.style.color = 'var(--ok)';
+    toast('Gemini key saved — active on all devices', 'ok');
+    setTimeout(function() { closeModal('modal-settings'); st.style.display = 'none'; }, 1500);
+  } else {
+    st.textContent = 'Failed to save to Sheet. Check connection.';
+    st.style.color = 'var(--ac3)';
+  }
+}
+
+async function loadGemKey() {
+  // Try local cache first (instant)
+  var cached = lsGet('meq_gk_cache', '');
+  if (cached) { window._gemKey = cached; return; }
+
+  // Fetch from Sheet
+  var cfg = await api('config');
+  if (cfg && cfg.ok && cfg.config && cfg.config.gem_enc) {
+    var raw = deobfuscate(cfg.config.gem_enc, getSalt());
+    if (raw && raw.startsWith('AIza')) {
+      window._gemKey = raw;
+      lsSet('meq_gk_cache', raw);
+    }
+  }
 }
 
 

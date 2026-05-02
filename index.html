@@ -69,7 +69,7 @@ td input[readonly]{color:var(--mu)}
 td input[readonly]:focus{border-color:transparent;background:transparent}
 .csn{width:32px;text-align:center;color:var(--mu);font-size:11px}
 .cn{min-width:220px}
-.cc{width:100px}.cq{width:58px}.cp{width:85px}.cd{width:62px}.cr{width:85px}.ct{width:50px}.ca{width:95px}.cX{width:28px}
+.cc{width:100px}.cq{width:72px}.cp{width:85px}.cd{width:62px}.cr{width:85px}.ct{width:50px}.ca{width:95px}.cX{width:28px}
 
 /* AUTOCOMPLETE */
 .acw{position:relative}
@@ -732,21 +732,24 @@ function openModal(id) { document.getElementById(id).classList.add('show'); }
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
 async function doLogin() {
-  var id = document.getElementById('li-id').value.trim();
-  var pw = document.getElementById('li-pw').value;
+  var id  = document.getElementById('li-id').value.trim();
+  var pw  = document.getElementById('li-pw').value;
   var err = document.getElementById('li-err');
+  var btn = document.querySelector('#modal-login .btn-p');
   err.classList.remove('show');
 
-  var url = getScriptUrl();
-  if (!url) {
-    err.textContent = 'Google Sheets not connected. Using default login only (admin / admin123). Connect Sheets in Database tab to use custom accounts.';
-  }
+  if (btn) { btn.textContent = 'Checking…'; btn.disabled = true; }
   var users = await getUsers();
-  var match = users.find(function(u) { return String(u.id).trim() === id && String(u.password).trim() === pw; });
+  if (btn) { btn.textContent = 'Login'; btn.disabled = false; }
+
+  var match = users.find(function(u) {
+    return String(u.id).trim().toLowerCase() === id.toLowerCase()
+        && String(u.password).trim() === pw;
+  });
   if (!match) {
     err.textContent = url
       ? 'Invalid ID or password. Check the Users tab in your Google Sheet.'
-      : 'Invalid credentials. Default login: admin / admin123';
+      : 'Invalid user ID or password.';
     err.classList.add('show');
     return;
   }
@@ -1026,7 +1029,99 @@ function saveQ() {
   toast('Saved!', 'ok');
 }
 
-function saveAndPrint() { saveQ(); setTimeout(function() { window.print(); }, 300); }
+function saveAndPrint() {
+  saveQ();
+  setTimeout(function() { printClean(); }, 300);
+}
+
+function printClean() {
+  // Build a clean print-only HTML to avoid browser URL/date headers
+  var client  = document.getElementById('m-client').value  || '';
+  var qno     = document.getElementById('m-qno').value     || '';
+  var date    = document.getElementById('m-date').value    || '';
+  var site    = document.getElementById('m-site').value    || '';
+  var totB    = document.getElementById('tot-b').textContent || '₹0';
+  var totT    = document.getElementById('tot-t').textContent || '₹0';
+  var totA    = document.getElementById('tot-a').textContent || '₹0';
+
+  // Build table rows HTML
+  var rowsHTML = '';
+  document.querySelectorAll('#qbody tr:not(.ghost)').forEach(function(tr, i) {
+    var name  = tr.querySelector('.ai')  ? tr.querySelector('.ai').value  : '';
+    var code  = tr.querySelector('.ci')  ? tr.querySelector('.ci').value  : '';
+    var qty   = tr.querySelector('.qi')  ? tr.querySelector('.qi').value  : '';
+    var mrp   = tr.querySelector('.pi')  ? tr.querySelector('.pi').value  : '';
+    var disc  = tr.querySelector('.di')  ? tr.querySelector('.di').value  : '';
+    var rate  = tr.querySelector('.ri')  ? tr.querySelector('.ri').value  : '';
+    var tax   = tr.querySelector('.ti')  ? tr.querySelector('.ti').value  : '';
+    var amt   = tr.querySelector('.ami') ? tr.querySelector('.ami').value : '';
+    if (!name && !code) return;
+    rowsHTML += '<tr>' +
+      '<td>' + (i+1) + '</td>' +
+      '<td>' + X(name) + '</td>' +
+      '<td>' + X(code) + '</td>' +
+      '<td>' + X(qty)  + '</td>' +
+      '<td>' + X(mrp)  + '</td>' +
+      '<td>' + X(disc) + '</td>' +
+      '<td>' + X(rate) + '</td>' +
+      '<td>' + X(tax)  + '</td>' +
+      '<td>' + X(amt)  + '</td>' +
+    '</tr>';
+  });
+
+  var metaHTML = '';
+  if (client || qno || date || site) {
+    metaHTML = '<table class="meta"><tbody>' +
+      (client ? '<tr><td><b>Client:</b></td><td>' + X(client) + '</td></tr>' : '') +
+      (qno    ? '<tr><td><b>Quotation No:</b></td><td>' + X(qno)    + '</td></tr>' : '') +
+      (date   ? '<tr><td><b>Date:</b></td><td>' + X(date)   + '</td></tr>' : '') +
+      (site   ? '<tr><td><b>Site:</b></td><td>' + X(site)   + '</td></tr>' : '') +
+    '</tbody></table>';
+  }
+
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+    '<style>' +
+    '@page{margin:12mm 14mm;size:A4}' +
+    'body{font-family:Arial,sans-serif;font-size:11px;color:#000;margin:0}' +
+    'h1{text-align:center;font-size:18px;letter-spacing:3px;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:14px}' +
+    '.meta{width:100%;margin-bottom:14px;border-collapse:collapse}' +
+    '.meta td{padding:2px 8px 2px 0;font-size:11px;vertical-align:top;width:50%}' +
+    'table.items{width:100%;border-collapse:collapse;margin-bottom:14px}' +
+    'table.items th{background:#222;color:#fff;font-size:10px;padding:6px 7px;text-align:left}' +
+    'table.items td{padding:5px 7px;font-size:11px;border-bottom:1px solid #ddd}' +
+    '.totals{display:flex;gap:8px}' +
+    '.tbox{flex:1;border:1px solid #ccc;background:#f5f5f5;padding:8px;text-align:center}' +
+    '.tbox .lbl{font-size:9px;text-transform:uppercase;color:#555;margin-bottom:3px}' +
+    '.tbox .val{font-size:13px;font-weight:bold}' +
+    '</style></head><body>' +
+    '<h1>ME QUOTATION</h1>' +
+    metaHTML +
+    '<table class="items"><thead><tr>' +
+    '<th style="width:28px">#</th>' +
+    '<th>ITEM NAME</th>' +
+    '<th style="width:90px">CODE</th>' +
+    '<th style="width:48px">QTY</th>' +
+    '<th style="width:72px">MRP (₹)</th>' +
+    '<th style="width:52px">DISC %</th>' +
+    '<th style="width:72px">RATE (₹)</th>' +
+    '<th style="width:44px">TAX %</th>' +
+    '<th style="width:85px">AMOUNT (₹)</th>' +
+    '</tr></thead><tbody>' + rowsHTML + '</tbody></table>' +
+    '<div class="totals">' +
+    '<div class="tbox"><div class="lbl">Total Before Tax</div><div class="val">' + totB + '</div></div>' +
+    '<div class="tbox"><div class="lbl">Tax (GST 18%)</div><div class="val">' + totT + '</div></div>' +
+    '<div class="tbox"><div class="lbl">Total After Tax</div><div class="val">' + totA + '</div></div>' +
+    '</div>' +
+    '<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};}<\/script>' +
+    '</body></html>';
+
+  var w = window.open('', '_blank', 'width=800,height=600');
+  if (w) { w.document.write(html); w.document.close(); }
+  else {
+    // Popup blocked - fallback to normal print
+    window.print();
+  }
+}
 
 // ================================================================
 // HISTORY
@@ -1754,6 +1849,132 @@ function cancelQuotePhoto() {
   document.getElementById('qu-status-box').style.display = 'none';
   pendingQuoteRows = [];
 }
+
+// ================================================================
+// QUOTATION FROM EXCEL INVOICE
+// ================================================================
+async function handleQuoteExcel(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  e.target.value = '';
+
+  var cnt = document.getElementById('qu-count');
+  if (cnt) cnt.textContent = 'Reading…';
+
+  try {
+    var buf  = await file.arrayBuffer();
+    var wb   = XLSX.read(new Uint8Array(buf), { type: 'array', raw: false });
+    var allRows = [];
+
+    wb.SheetNames.forEach(function(sn) {
+      var ws   = wb.Sheets[sn];
+      var data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+      var extracted = extractInvoiceRows(data);
+      allRows = allRows.concat(extracted);
+    });
+
+    if (!allRows.length) { toast('No items found in file', 'err'); if (cnt) cnt.textContent = ''; return; }
+
+    pendingQuoteRows = allRows;
+
+    // Show preview
+    var prev     = document.getElementById('qu-preview');
+    var prevBody = document.getElementById('qu-preview-body');
+    var prevCnt  = document.getElementById('qu-preview-cnt');
+    if (prevCnt)  prevCnt.textContent  = allRows.length + ' items found';
+    if (prevBody) prevBody.innerHTML = allRows.map(function(r) {
+      return '<tr>' +
+        '<td style="padding:5px 9px">' + X(r.name) + '</td>' +
+        '<td style="padding:5px 9px;text-align:center">' + r.qty + '</td>' +
+        '<td style="padding:5px 9px">' + (r.price ? '₹' + r.price : '—') + '</td>' +
+        '<td style="padding:5px 9px;color:var(--ac2)">' + X(r.code || '—') + '</td>' +
+      '</tr>';
+    }).join('');
+    if (prev) prev.style.display = 'block';
+    if (cnt) cnt.textContent = allRows.length + ' items found';
+    toast(allRows.length + ' items extracted', 'ok');
+
+  } catch(err) {
+    toast('Error: ' + err.message, 'err');
+    console.error('Excel quote error:', err);
+  }
+}
+
+function extractInvoiceRows(data) {
+  var rows = [];
+
+  // Step 1: Find header row
+  var descCol = -1, codeCol = -1, qtyCol = -1, priceCol = -1, dataStart = 0;
+  for (var r = 0; r < Math.min(data.length, 15); r++) {
+    var row = data[r].map(function(c) { return String(c || '').toUpperCase().trim(); });
+    var joined = row.join('|');
+    if (joined.indexOf('DESCRIPTION') >= 0 || joined.indexOf('GOODS') >= 0 || joined.indexOf('ITEM') >= 0) {
+      row.forEach(function(cell, ci) {
+        if (descCol  < 0 && (cell.indexOf('DESCRIPTION') >= 0 || cell.indexOf('GOODS') >= 0 || cell === 'ITEM')) descCol = ci;
+        if (codeCol  < 0 && (cell.indexOf('PART') >= 0 || cell.indexOf('CODE') >= 0 || cell.indexOf('REF') >= 0)) codeCol = ci;
+        if (qtyCol   < 0 && (cell === 'QTY' || cell.indexOf('QUANTITY') >= 0)) qtyCol = ci;
+        if (priceCol < 0 && (cell.indexOf('PRICE') >= 0 || cell.indexOf('RATE') >= 0 || cell.indexOf('MRP') >= 0)) priceCol = ci;
+      });
+      dataStart = r + 1;
+      break;
+    }
+  }
+
+  // Defaults if no header
+  if (descCol < 0) descCol = 1;
+  if (codeCol < 0) codeCol = 3;  // Part No. typically col 3 in Schneider-style invoices
+  if (qtyCol  < 0) qtyCol  = 4;
+
+  // Step 2: Extract data rows
+  for (var r2 = dataStart; r2 < data.length; r2++) {
+    var row2  = data[r2];
+    if (!row2 || !row2.length) continue;
+    var desc  = String(row2[descCol]  || '').trim();
+    var code  = String(row2[codeCol]  || '').trim();
+    var qty   = parseFloat(String(row2[qtyCol] || '').replace(/[^0-9.]/g,'')) || 1;
+    var price = priceCol >= 0 ? parseFloat(String(row2[priceCol] || '').replace(/[^0-9.]/g,'')) || null : null;
+
+    // Skip blank, header, total rows
+    if (!desc && !code) continue;
+    var descUP = desc.toUpperCase();
+    if (descUP === 'DESCRIPTION' || descUP === 'GOODS' || descUP.indexOf('TOTAL') >= 0 ||
+        descUP.indexOf('CGST') >= 0 || descUP.indexOf('SGST') >= 0 || descUP.indexOf('TAX') >= 0) continue;
+    if (desc.length < 2 && code.length < 2) continue;
+
+    // Match against DB — code match is most reliable
+    var match = null;
+    if (code) {
+      var codeClean = code.replace(/\s+/g, '').toUpperCase();
+      match = DB.find(function(d) {
+        return d.code && d.code.replace(/\s+/g, '').toUpperCase() === codeClean;
+      });
+    }
+    // Fuzzy name match if no code match
+    if (!match && desc.length > 3) {
+      var words = desc.toUpperCase()
+        .replace(/\s+(LEG|NXG|LEG LEG)\s*$/g, '')
+        .replace(/[^A-Z0-9 +]/g, ' ')
+        .split(/\s+/)
+        .filter(function(w) { return w.length > 2 && ['THE','AND','WITH','FOR','LEG'].indexOf(w) < 0; });
+      if (words.length >= 2) {
+        match = DB.find(function(d) {
+          var hay = ((d.brand || '') + ' ' + (d.name || '')).toUpperCase();
+          return words.every(function(w) { return hay.indexOf(w) >= 0; });
+        });
+      }
+    }
+
+    rows.push({
+      name:  match ? ((match.brand ? match.brand + ' - ' : '') + match.name) : (desc || code),
+      code:  match ? (match.code || code) : code,
+      price: match ? (match.price || price) : price,
+      qty:   qty,
+      disc:  0
+    });
+  }
+  return rows;
+}
+
 
 // ================================================================
 // SHARED GEMINI HELPERS

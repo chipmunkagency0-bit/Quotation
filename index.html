@@ -415,27 +415,6 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
   <div class="ptitle">Item Database</div>
   <p class="psub">Upload Excel / CSV / PDF to import. Edit, delete, organise into folders.</p>
 
-  <!-- Connection Config Card -->
-  <div class="card" style="border-color:rgba(232,197,71,.3)">
-    <div class="ctitle">⚙ Google Sheets Connection</div>
-    <div class="fgrid">
-      <div class="fl" style="grid-column:1/-1">
-        <label>Apps Script Web App URL</label>
-        <input id="cfg-url" type="url" placeholder="https://script.google.com/macros/s/…/exec"
-          oninput="markDirty()">
-      </div>
-      <div class="fl">
-        <label>Gemini API Key (for PDF OCR)</label>
-        <input id="cfg-gem" type="password" placeholder="AIza…" oninput="markDirty()">
-      </div>
-    </div>
-    <div class="arow" style="margin-top:10px">
-      <button class="btn btn-p btn-sm" onclick="connectSheets()">Connect &amp; Sync</button>
-      <button class="btn btn-g btn-sm" onclick="openModal('modal-setup')">Setup Guide</button>
-      <span id="conn-status" style="font-size:11px;color:var(--mu)"></span>
-    </div>
-  </div>
-
   <!-- Folders -->
   <div class="card">
     <div class="ctitle">Folders</div>
@@ -490,7 +469,8 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
       <input class="si" id="db-q" type="text" placeholder="Search name, code, brand…" oninput="renderDB()">
       <select class="fs" id="db-brand" onchange="renderDB()"><option value="">All Brands</option></select>
       <button class="btn btn-g btn-sm" onclick="addItem()">+ Add Item</button>
-      <button class="btn btn-d btn-sm" onclick="syncItemsToSheet()">↑ Push to Sheet</button>
+      <button class="btn btn-g btn-sm" onclick="syncItemsToSheet()">↑ Sync to Sheet</button>
+      <button class="btn btn-d btn-sm" onclick="clearAllDB()">🗑 Clear All</button>
     </div>
     <div class="dbw">
       <table class="dbt">
@@ -512,8 +492,8 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
 // ================================================================
 // CONFIG — paste your values here OR use the Config card in the app
 // ================================================================
-var SCRIPT_URL = '';  // your Apps Script Web App URL
-var GEMINI_KEY = '';  // your Gemini API key
+var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx16uLQhIPphsI7WpCM6hxbVTxYUNlSJPxVHxxnJzPcx1z56agB7AEf_Un7tVjZ2MNa/exec';
+var GEMINI_KEY = 'AIzaSyDZyI9_vFH3szzYO8_jzfa0kdi4v2zd6qw';
 
 // ================================================================
 // SEED DATA (built-in items, used if no Sheet connected)
@@ -548,8 +528,8 @@ function lsGet(k, def) {
 }
 function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
 
-function getScriptUrl() { return (document.getElementById('cfg-url') && document.getElementById('cfg-url').value.trim()) || lsGet(LS_URL,'') || SCRIPT_URL || ''; }
-function getGemKey()    { return (document.getElementById('cfg-gem') && document.getElementById('cfg-gem').value.trim()) || lsGet(LS_GEM,'') || GEMINI_KEY || ''; }
+function getScriptUrl() { return SCRIPT_URL; }
+function getGemKey()    { return GEMINI_KEY; }
 
 function markDirty() { dirty = true; }
 
@@ -637,9 +617,9 @@ async function fullSync() {
       var merged = hist.history.concat(extra).sort(function(a,b) { return new Date(b.date) - new Date(a.date); });
       lsSet(LS_HIST, merged);
     }
-    if (cfg && cfg.ok && cfg.config && cfg.config.gemini_key) {
-      var keyEl = document.getElementById('cfg-gem');
-      if (keyEl && !keyEl.value) keyEl.value = cfg.config.gemini_key;
+    if (cfg && cfg.ok && cfg.config) {
+      // Save gemini key
+      // Config loaded (keys hardwired, no UI needed)
     }
 
     setSyncStatus('ok', 'synced');
@@ -667,18 +647,26 @@ async function syncItemsToSheet() {
 function init() {
   // Load from localStorage first
   var stored = lsGet(LS_DB, null);
-  DB = stored && stored.length > 0 ? stored : SEED_DATA.map(function(d, i) {
-    return { id: i, name: d.name, code: d.code || '', price: d.price || null, brand: d.brand || '', folder: 'all' };
-  });
-  folders = lsGet(LS_FOLDERS, ['all']);
+  if (stored && stored.length > 0) {
+    DB = stored;
+  } else {
+    // Seed with Legrand folder
+    DB = SEED_DATA.map(function(d, i) {
+      return { id: i, name: d.name, code: d.code || '', price: d.price || null, brand: d.brand || '', folder: 'legrand' };
+    });
+    lsSet(LS_DB, DB);
+  }
+  var storedFolders = lsGet(LS_FOLDERS, null);
+  if (storedFolders) {
+    folders = storedFolders;
+    // Make sure legrand exists
+    if (folders.indexOf('legrand') < 0) folders.push('legrand');
+  } else {
+    folders = ['all', 'legrand'];
+    lsSet(LS_FOLDERS, folders);
+  }
 
   // Restore config UI
-  var url = lsGet(LS_URL, '');
-  var gem = lsGet(LS_GEM, '');
-  var urlEl = document.getElementById('cfg-url');
-  var gemEl = document.getElementById('cfg-gem');
-  if (urlEl && url) urlEl.value = url;
-  if (gemEl && gem) gemEl.value = gem;
 
   // Restore admin session
   if (sessionStorage.getItem('meq_admin') === '1') {
@@ -696,13 +684,9 @@ function init() {
   addRow();
   ensureGhost();
 
-  // Background sync if URL exists
-  if (url) {
-    setSyncStatus('spin', 'syncing');
-    fullSync().catch(function() { setSyncStatus('err', 'disconnected'); });
-  } else {
-    setSyncStatus('ok', 'local mode');
-  }
+  // Auto-connect on every load
+  setSyncStatus('spin', 'syncing');
+  fullSync().catch(function() { setSyncStatus('err', 'offline'); });
 }
 
 // ================================================================
@@ -1280,22 +1264,58 @@ function renderFolders() {
   function mk(label, icon, folderName, cnt) {
     var d = document.createElement('div');
     d.className = 'fcard' + (curFolder === folderName ? ' on' : '');
-    d.innerHTML = '<span style="font-size:15px">' + icon + '</span><span>' + X(label) + '</span><span class="fcnt">' + cnt + '</span>';
+    d.innerHTML = '<span style="font-size:15px">' + icon + '</span>' +
+      '<span class="fname" style="flex:1">' + X(label) + '</span>' +
+      '<span class="fcnt">' + cnt + '</span>';
     d.onclick = function() { curFolder = folderName; renderFolders(); renderDB(); };
     return d;
   }
   row.appendChild(mk('All Items', '📂', 'all', DB.length));
   folders.filter(function(f) { return f !== 'all'; }).forEach(function(f) {
-    var cnt = DB.filter(function(d) { return d.folder === f; }).length;
+    var cnt  = DB.filter(function(d) { return d.folder === f; }).length;
     var card = mk(f, '📁', f, cnt);
-    var del = document.createElement('button');
-    del.textContent = '✕';
-    del.title = 'Delete folder';
-    del.style.cssText = 'background:none;border:none;cursor:pointer;color:var(--mu);font-size:10px;padding:0 0 0 5px';
-    del.onclick = function(e) { e.stopPropagation(); delFolder(f); };
-    card.appendChild(del);
+    var editBtn = document.createElement('button');
+    editBtn.textContent = '✏️';
+    editBtn.title = 'Rename folder';
+    editBtn.style.cssText = 'background:none;border:none;cursor:pointer;font-size:10px;padding:0 0 0 3px;opacity:.6';
+    editBtn.onclick = function(e) { e.stopPropagation(); renameFolder(f); };
+    var delBtn = document.createElement('button');
+    delBtn.textContent = '✕';
+    delBtn.title = 'Delete folder';
+    delBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:var(--mu);font-size:10px;padding:0 0 0 2px';
+    delBtn.onclick = function(e) { e.stopPropagation(); delFolder(f); };
+    card.appendChild(editBtn);
+    card.appendChild(delBtn);
     row.appendChild(card);
   });
+}
+
+function renameFolder(oldName) {
+  var newName = prompt('Rename folder "' + oldName + '" to:', oldName);
+  if (!newName || !newName.trim() || newName.trim() === oldName) return;
+  newName = newName.trim();
+  if (folders.indexOf(newName) >= 0) { toast('A folder with that name already exists', 'err'); return; }
+  // Update all items in this folder
+  DB.forEach(function(d) { if (d.folder === oldName) d.folder = newName; });
+  folders = folders.map(function(f) { return f === oldName ? newName : f; });
+  if (curFolder === oldName) curFolder = newName;
+  lsSet(LS_DB, DB);
+  lsSet(LS_FOLDERS, folders);
+  if (getScriptUrl()) {
+    api('save_items', { items: DB }).catch(function(){});
+    api('save_folders', { folders: folders }).catch(function(){});
+  }
+  renderFolders(); renderDB();
+  toast('Renamed to "' + newName + '"');
+}
+
+function clearAllDB() {
+  if (!confirm('Delete ALL items from the database? This cannot be undone.')) return;
+  DB = [];
+  lsSet(LS_DB, DB);
+  if (getScriptUrl()) api('save_items', { items: [] }).catch(function(){});
+  renderFolders(); renderDB();
+  toast('Database cleared');
 }
 
 function newFolder() {
@@ -1654,7 +1674,8 @@ function showPreview() {
 
 function importParsed() {
   if (!parsedItems.length) { toast('Nothing to import', 'err'); return; }
-  var folder = curFolder === 'all' ? 'all' : curFolder;
+  // Always use the currently selected folder (never 'all' — use 'legrand' as default)
+  var folder = (curFolder && curFolder !== 'all') ? curFolder : (folders.indexOf('legrand') >= 0 ? 'legrand' : folders.filter(function(f){return f!=='all';})[0] || 'all');
   var added = 0, updated = 0;
   parsedItems.forEach(function(d) {
     // Match by code first, then by exact name

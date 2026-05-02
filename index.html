@@ -204,11 +204,15 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
 @media print{
   *{font-family:Arial,sans-serif!important}
   body{background:#fff!important;color:#000!important;font-size:11px}
-  nav,.arow,.cX,.np,.ghost,.pdfs,.pprev,.dz,.frow,.dbc,.dbw,
+  #toast,nav,.arow,.cX,.np,.ghost,.pdfs,.pprev,.dz,.frow,.dbc,.dbw,
   #page-database,#page-history,#page-analytics,
-  .ctitle,.fgrid,.tgrid,.modal{display:none!important}
+  .ctitle,.fgrid,.tgrid,.modal,.ptitle,.psub,
+  #upload-from-file-card{display:none!important}
   #page-quotation{display:block!important;padding:10mm 12mm}
   #page-quotation::before{content:"ME QUOTATION";display:block;font-size:19px;font-weight:bold;text-align:center;letter-spacing:3px;margin-bottom:14px;border-bottom:2px solid #000;padding-bottom:9px}
+  /* Kill browser header/footer (URL, date, page number) */
+  @page{margin:15mm 14mm 10mm 14mm;size:A4}
+  head{display:none!important}
   .tgrid{display:grid!important;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-top:12px}
   .tbox{background:#f5f5f5!important;border:1px solid #ccc!important;padding:8px 11px;text-align:center}
   .tbox .tl{font-size:9px;color:#555!important;text-transform:uppercase;margin-bottom:3px}
@@ -303,15 +307,43 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
   </div>
 
   <div class="card np" id="upload-from-file-card">
-    <div class="ctitle">Create From Upload</div>
-    <div class="arow" style="margin-top:0">
-      <button class="btn btn-p btn-sm" onclick="document.getElementById('qu-file').click()">📎 Choose File</button>
-      <button class="btn btn-g btn-sm" onclick="document.getElementById('qu-cam').click()">📷 Camera / Gallery</button>
+    <div class="ctitle">📷 Create From Handwritten / Photo</div>
+    <p style="font-size:11px;color:var(--mu);margin-bottom:12px">
+      Take a photo of a handwritten quotation request — Gemini AI reads the items, quantities and prices and fills the rows automatically.
+    </p>
+    <div class="arow" style="margin-top:0;flex-wrap:wrap">
+      <button class="btn btn-p btn-sm" onclick="document.getElementById('qu-cam').click()">📷 Take Photo</button>
+      <button class="btn btn-g btn-sm" onclick="document.getElementById('qu-gal').click()">🖼 Gallery / File</button>
       <span class="tag" id="qu-count" style="font-size:11px"></span>
     </div>
-    <input type="file" id="qu-file" accept=".xlsx,.xls,.csv,.txt,.pdf,image/*" style="display:none" onchange="handleQuoteFile(event)">
-    <input type="file" id="qu-cam" accept="image/*" capture="environment" style="display:none" onchange="handleQuoteFile(event)">
-    <div id="qu-status" style="display:none;margin-top:10px;font-size:11px;color:var(--mu)"></div>
+    <input type="file" id="qu-cam" accept="image/*" capture="environment" style="display:none" onchange="handleQuotePhoto(event)">
+    <input type="file" id="qu-gal" accept="image/*,.pdf" style="display:none" onchange="handleQuotePhoto(event)">
+    <!-- Status box -->
+    <div id="qu-status-box" style="display:none;margin-top:14px;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:13px">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:6px">
+        <span id="qu-icon" style="font-size:18px">🤖</span>
+        <strong id="qu-title" style="font-size:13px">Processing…</strong>
+      </div>
+      <div id="qu-msg" style="font-size:11px;color:var(--mu);line-height:1.7"></div>
+      <div class="pb show" style="margin-top:9px"><div class="pf" id="qu-pf" style="width:0%;transition:width .8s ease"></div></div>
+    </div>
+    <!-- Preview of what was extracted before inserting rows -->
+    <div id="qu-preview" style="display:none;margin-top:14px;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:13px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <strong style="font-size:13px">Extracted Items</strong>
+        <span id="qu-preview-cnt" style="font-size:11px;color:var(--mu)"></span>
+      </div>
+      <div style="max-height:220px;overflow-y:auto">
+        <table class="dbt" style="width:100%">
+          <thead><tr><th>ITEM</th><th>QTY</th><th>PRICE</th><th>CODE</th></tr></thead>
+          <tbody id="qu-preview-body"></tbody>
+        </table>
+      </div>
+      <div class="arow" style="margin-top:10px">
+        <button class="btn btn-p btn-sm" onclick="insertQuoteRows()">✓ Add to Quotation</button>
+        <button class="btn btn-g btn-sm" onclick="cancelQuotePhoto()">✕ Cancel</button>
+      </div>
+    </div>
   </div>
 
   <div class="card">
@@ -662,7 +694,9 @@ function init() {
   // Background sync if URL exists
   if (url) {
     setSyncStatus('spin', 'syncing');
-    fullSync().catch(function() { setSyncStatus('err', 'offline'); });
+    fullSync().catch(function() { setSyncStatus('err', 'disconnected'); });
+  } else {
+    setSyncStatus('ok', 'local mode');
   }
 }
 
@@ -698,9 +732,16 @@ async function doLogin() {
   var err = document.getElementById('li-err');
   err.classList.remove('show');
 
+  var url = getScriptUrl();
+  if (!url) {
+    err.textContent = 'Google Sheets not connected. Using default login only (admin / admin123). Connect Sheets in Database tab to use custom accounts.';
+  }
   var users = await getUsers();
   var match = users.find(function(u) { return String(u.id).trim() === id && String(u.password).trim() === pw; });
   if (!match) {
+    err.textContent = url
+      ? 'Invalid ID or password. Check the Users tab in your Google Sheet.'
+      : 'Invalid credentials. Default login: admin / admin123';
     err.classList.add('show');
     return;
   }
@@ -716,13 +757,23 @@ async function doLogin() {
 }
 
 async function getUsers() {
-  // Try from Sheets first, fallback to hardcoded
   var url = getScriptUrl();
+
+  // 1. If Sheet URL is set, ALWAYS fetch fresh from Sheet (catches new users)
   if (url) {
     var r = await api('users');
-    if (r && r.ok && r.users && r.users.length) return r.users;
+    if (r && r.ok && r.users && r.users.length) {
+      // Cache locally so offline login still works
+      lsSet('meq_users_cache', r.users);
+      return r.users;
+    }
   }
-  // Fallback: default admin (password: admin123)
+
+  // 2. Try locally cached users (set when Sheet was last reachable)
+  var cached = lsGet('meq_users_cache', null);
+  if (cached && cached.length) return cached;
+
+  // 3. Last resort: built-in default
   return [{ id: 'admin', password: 'admin123', role: 'admin' }];
 }
 
@@ -1246,151 +1297,286 @@ function handleDBFile2(file) {
   }
 }
 
+
+// ================================================================
+// DATABASE UPLOAD — Excel / CSV
+// ================================================================
 function parseDBExcel(file) {
   var pb = document.getElementById('xpb'), pf = document.getElementById('xpf');
-  pb.classList.add('show'); pf.style.width = '20%';
-  toast('Parsing file…');
+  pb.classList.add('show'); pf.style.width = '10%';
+  toast('Reading file…');
+
   var reader = new FileReader();
+  reader.onerror = function() { pb.classList.remove('show'); toast('Could not read file', 'err'); };
   reader.onload = function(e) {
-    pf.style.width = '60%';
     try {
+      pf.style.width = '40%';
       var wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
       parsedItems = [];
-      wb.SheetNames.forEach(function(sn) {
-        var ws = wb.Sheets[sn];
-        var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-        parsedItems = parsedItems.concat(extractTables(rows, sn));
+
+      wb.SheetNames.forEach(function(sheetName) {
+        var ws   = wb.Sheets[sheetName];
+        var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+        var extracted = smartExtract(rows, sheetName);
+        parsedItems = parsedItems.concat(extracted);
       });
+
       pf.style.width = '100%';
       setTimeout(function() { pb.classList.remove('show'); }, 500);
+
+      if (parsedItems.length === 0) {
+        toast('No items found. Check file format.', 'err');
+        return;
+      }
       showPreview();
       toast('Found ' + parsedItems.length + ' items', 'ok');
-    } catch(err) { pb.classList.remove('show'); toast('Error: ' + err.message, 'err'); }
+    } catch(err) {
+      pb.classList.remove('show');
+      toast('Error reading file: ' + err.message, 'err');
+      console.error('Excel parse error:', err);
+    }
   };
   reader.readAsArrayBuffer(file);
 }
 
+// ================================================================
+// DATABASE UPLOAD — PDF via Gemini
+// ================================================================
 async function parseDBPDF(file) {
   var key = getGemKey();
-  if (!key) { toast('Add a Gemini API key in Config first', 'err'); return; }
-  var pdfs = document.getElementById('pdfs');
-  function st(icon, title, msg, pct) {
-    document.getElementById('pdf-icon').textContent = icon;
-    document.getElementById('pdf-title').textContent = title;
-    document.getElementById('pdf-msg').innerHTML = msg;
-    document.getElementById('pdf-pf').style.width = pct + '%';
-    pdfs.classList.add('show');
+  if (!key) {
+    toast('No Gemini API key — add it in Database → Config', 'err');
+    return;
   }
+
+  var box = document.getElementById('pdfs');
+  function st(icon, title, msg, pct) {
+    document.getElementById('pdf-icon').textContent  = icon;
+    document.getElementById('pdf-title').textContent = title;
+    document.getElementById('pdf-msg').innerHTML     = msg;
+    document.getElementById('pdf-pf').style.width   = pct + '%';
+    box.classList.add('show');
+  }
+
   try {
-    st('🤖', 'Reading PDF…', 'Converting for AI…', 10);
-    var base64 = await new Promise(function(res, rej) {
-      var r = new FileReader();
-      r.onload = function() { res(r.result.split(',')[1]); };
-      r.onerror = rej;
-      r.readAsDataURL(file);
-    });
-    var sz = Math.round(base64.length * 0.75 / 1024);
-    st('🧠', 'Gemini AI Extracting…',
-      'Sending <b>' + X(file.name) + '</b> (' + sz + ' KB) to Gemini 2.5 Flash.<br>' +
-      'Handles multi-pole, multi-colour, complex tables.<br>' +
-      '<span style="color:var(--ac)">May take 15–40s for large catalogues…</span>', 30);
+    st('📖', 'Reading PDF…', 'Converting to base64…', 10);
 
-    var prompt = 'Extract ALL product entries from this electrical price list PDF into a JSON array.\n\nRULES:\n1. MULTI-COLUMN TABLES: Each row may have multiple Reference+Price pairs (e.g. 1P Ref, 1P MRP, 2P Ref, 2P MRP). Create ONE entry per non-empty Ref+Price pair.\n2. MULTI-COLOUR: Columns like Ref White, MRP White, Ref Grey, MRP Grey - one entry per colour, append colour to name.\n3. RCCB: combine current+sensitivity in name e.g. 25A 30mA RCCB 2P.\n4. Use section heading as brand. Skip rows where Reference is blank.\n5. Return ONLY a raw JSON array. No markdown. No explanation.\nFormat: [{name:...,code:...,price:number_or_null,brand:...}]';
+    var base64 = await fileToBase64(file);
+    var sizeKB  = Math.round(base64.length * 0.75 / 1024);
 
-    var resp = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + key, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ inline_data: { mime_type: 'application/pdf', data: base64 } }, { text: prompt }] }],
-        generationConfig: { maxOutputTokens: 16000, temperature: 0 }
-      })
-    });
-    st('⚡', 'Parsing response…', 'Processing AI output…', 75);
-    if (!resp.ok) { var er = await resp.json(); throw new Error((er.error && er.error.message) || 'Gemini error ' + resp.status); }
-    var data = await resp.json();
-    var txt = ((data.candidates || [])[0] || {}).content;
-    txt = (txt && txt.parts ? txt.parts.map(function(p) { return p.text || ''; }).join('') : '').trim();
-    txt = txt.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```\s*$/, '').trim();
-    var extracted;
-    try { extracted = JSON.parse(txt); } catch(e) {
-      var m = txt.match(/\[\s*\{[\s\S]*\}\s*\]/);
-      if (m) { try { extracted = JSON.parse(m[0]); } catch(e2) { throw new Error('Parse failed: ' + txt.slice(0, 200)); } }
-      else throw new Error('No JSON array found: ' + txt.slice(0, 200));
+    st('🧠', 'Gemini Extracting…',
+      'Sending <b>' + X(file.name) + '</b> (' + sizeKB + ' KB) to Gemini 2.5 Flash.<br>' +
+      'Detecting multi-column tables, multi-pole variants, multi-colour refs…<br>' +
+      '<span style="color:var(--ac)">Large catalogues can take 20–40 seconds.</span>', 30);
+
+    var prompt = [
+      'You are a data extraction engine for electrical product catalogues, price lists, and invoices.',
+      'Extract EVERY product entry from this PDF as a flat JSON array.',
+      '',
+      'DOCUMENT TYPES YOU MAY SEE:',
+      '- Price list / catalogue: has item name, reference/code, and MRP/list price columns',
+      '- Tax invoice / delivery note: has description, HSN/SAC code, Part No. (product code), and quantity',
+      '',
+      'EXTRACTION RULES:',
+      '1. CODE PRIORITY: Always prefer the product/part code (e.g. 675513, EZ9F71106) over HSN/SAC codes. Look for columns named "Part No.", "Reference", "Ref", "Code", "Item Code".',
+      '2. MULTI-COLUMN PRICE LISTS: If a row has multiple Reference+Price pairs (1P Ref/MRP, 2P Ref/MRP etc), create one item per non-empty pair. Include pole info in the name.',
+      '3. MULTI-COLOUR: Columns like "Ref White, MRP White, Ref Grey, MRP Grey" → one item per colour, append colour to name.',
+      '4. BRAND: Use section headings (MYLINC, MYRIUS, RTR, Easy9, Livia etc) as the brand field. For invoices, extract brand from the item description.',
+      '5. NAMES: Clean up item descriptions — remove LEG, NXG suffix words if they are not part of the actual product name. Fix obvious abbreviations.',
+      '6. SKIP rows where code/reference is "-", blank, or "N/A". Skip header rows and total rows.',
+      '7. PRICES: Numbers only, no ₹ or Rs symbols. Use null if not available.',
+      '8. QUANTITIES: Include qty field if this is an invoice/order, otherwise omit.',
+      '',
+      'Return ONLY a valid JSON array. No markdown fences, no explanation, no code blocks.',
+      'Format: [{"name":"item name","code":"part/ref code","price":number_or_null,"brand":"brand name"}]',
+      'For invoices also include: "qty": number'
+    ].join('\n');
+
+    var resp = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + key,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: 'application/pdf', data: base64 } },
+              { text: prompt }
+            ]
+          }],
+          generationConfig: { maxOutputTokens: 16000, temperature: 0 }
+        })
+      }
+    );
+
+    st('⚡', 'Parsing response…', 'AI response received, extracting items…', 80);
+
+    if (!resp.ok) {
+      var errData = await resp.json();
+      throw new Error((errData.error && errData.error.message) || 'Gemini API error ' + resp.status);
     }
-    if (!Array.isArray(extracted)) throw new Error('Non-array response');
-    parsedItems = extracted.filter(function(d) { return d && d.name && String(d.name).trim().length > 1; }).map(function(d) {
-      return { name: String(d.name).trim(), code: d.code ? String(d.code).trim() : '', price: (d.price != null && !isNaN(parseFloat(d.price))) ? parseFloat(d.price) : null, brand: d.brand ? String(d.brand).trim() : '' };
+
+    var data    = await resp.json();
+    var rawText = geminiText(data);
+    var items   = parseGeminiJSON(rawText);
+
+    parsedItems = items.filter(function(d) {
+      return d && d.name && String(d.name).trim().length > 1;
+    }).map(function(d) {
+      return {
+        name:  String(d.name).trim(),
+        code:  d.code  ? String(d.code).trim()  : '',
+        price: (d.price != null && !isNaN(parseFloat(d.price))) ? parseFloat(d.price) : null,
+        brand: d.brand ? String(d.brand).trim() : ''
+      };
     });
-    var foundBrands = []; var bs = {};
-    parsedItems.forEach(function(p) { if (p.brand && !bs[p.brand]) { bs[p.brand] = 1; foundBrands.push(p.brand); } });
-    st('✅', 'Done! ' + parsedItems.length + ' items', 'Brands: <b>' + X(foundBrands.slice(0, 5).join(', ')) + '</b>. Review below then Import.', 100);
-    setTimeout(function() { pdfs.classList.remove('show'); }, 3000);
+
+    var brandSet = {}, brandList = [];
+    parsedItems.forEach(function(p) { if (p.brand && !brandSet[p.brand]) { brandSet[p.brand] = 1; brandList.push(p.brand); } });
+
+    st('✅', 'Done — ' + parsedItems.length + ' items found',
+      'Brands detected: <b>' + X(brandList.slice(0, 6).join(', ')) + '</b><br>Review the preview below then click Import.', 100);
+    setTimeout(function() { box.classList.remove('show'); }, 4000);
+
     showPreview();
     toast('Extracted ' + parsedItems.length + ' items', 'ok');
+
   } catch(err) {
-    st('❌', 'Error', '<span style="color:var(--ac3)">' + X(err.message) + '</span><br>Tip: PDF must have selectable text, not a scanned image.', 0);
+    st('❌', 'Error', '<span style="color:var(--ac3)">' + X(err.message) + '</span><br>Make sure the PDF has selectable text (not a scanned image). Check your Gemini API key.', 0);
     toast('PDF error: ' + err.message, 'err');
+    console.error('PDF parse error:', err);
   }
 }
 
-function extractTables(rows, sn) {
-  var items = [], brand = sn, inT = false, hc = {};
-  var isP = function(v) { var n = parseFloat(v); return !isNaN(n) && n > 0 && n < 1000000; };
-  var isC = function(v) { var s = String(v).trim(); return /^\d{4,7}[A-Z]?$/.test(s) || /^[A-Z]\d{4,}/.test(s); };
-  var isH = function(row) { var j = row.map(function(c) { return String(c).toUpperCase(); }).join('|'); return j.indexOf('CODE') >= 0 || j.indexOf('ITEM') >= 0 || j.indexOf('LIST') >= 0 || j.indexOf('PRICE') >= 0; };
+// ================================================================
+// SMART EXCEL TABLE EXTRACTOR
+// ================================================================
+function smartExtract(rows, sheetName) {
+  var items  = [];
+  var brand  = sheetName;
+
+  // Helper: does value look like a price?
+  function isPrice(v) { var n = parseFloat(v); return !isNaN(n) && n > 0 && n < 1000000; }
+  // Helper: does value look like a product code?
+  function isCode(v)  { var s = String(v).trim(); return s.length >= 4 && (/^\d{4,}[A-Z]?$/.test(s) || /^[A-Z]{1,3}\d{3,}/.test(s) || /^[A-Z0-9]{4,12}$/.test(s)); }
+  // Helper: is this a header row?
+  function isHeader(row) {
+    var joined = row.map(function(c) { return String(c).toUpperCase(); }).join('|');
+    return joined.indexOf('CODE') >= 0 || joined.indexOf('ITEM') >= 0 ||
+           joined.indexOf('DESCRIPTION') >= 0 || joined.indexOf('LIST') >= 0 ||
+           joined.indexOf('MRP') >= 0 || joined.indexOf('PRICE') >= 0 || joined.indexOf('RATE') >= 0;
+  }
+  // Helper: get non-empty cells
+  function nonEmpty(row) { return row.filter(function(c) { return String(c).trim() !== ''; }); }
+
+  var nameCol = -1, codeCol = -1, priceCol = -1, inTable = false;
+
   for (var r = 0; r < rows.length; r++) {
-    var row = rows[r].map(function(c) { return String(c).trim(); });
-    if (!row.filter(function(c) { return c; }).length) continue;
-    if (isH(row)) {
-      hc = {};
+    var rawRow = rows[r];
+    if (!rawRow || !rawRow.length) continue;
+    var row = rawRow.map(function(c) { return String(c === null || c === undefined ? '' : c).trim(); });
+    var ne  = nonEmpty(row);
+    if (!ne.length) continue;
+
+    // Detect section/brand header (single non-empty cell, not a number)
+    if (ne.length <= 2 && !isPrice(ne[0]) && !isCode(ne[0]) && ne[0].length > 1 && ne[0].length < 60) {
+      brand = ne[0];
+    }
+
+    // Detect header row → map columns
+    if (isHeader(row)) {
+      nameCol = -1; codeCol = -1; priceCol = -1;
       row.forEach(function(cell, ci) {
         var up = cell.toUpperCase();
-        if ((up.indexOf('ITEM') >= 0 || up.indexOf('NAME') >= 0 || up.indexOf('DESCRIPTION') >= 0) && hc.name === undefined) hc.name = ci;
-        if ((up.indexOf('CODE') >= 0 || up === 'MYLINC' || up === 'MYRIUS' || up === 'RTR' || up === 'BRITZY' || up === 'LYNCUS') && hc.code === undefined) hc.code = ci;
-        if ((up.indexOf('LIST') >= 0 || up.indexOf('PRICE') >= 0 || up.indexOf('MRP') >= 0 || up.indexOf('RATE') >= 0) && hc.price === undefined) hc.price = ci;
+        if (nameCol  < 0 && (up.indexOf('ITEM') >= 0 || up.indexOf('NAME') >= 0 || up.indexOf('DESCRIPTION') >= 0)) nameCol  = ci;
+        if (codeCol  < 0 && (up.indexOf('CODE') >= 0 || up.indexOf('REF') >= 0 || up.indexOf('PART') >= 0 || up.indexOf('ITEM NO') >= 0 || up === 'NO' || isCode(cell))) codeCol = ci;
+        if (priceCol < 0 && (up.indexOf('LIST') >= 0 || up.indexOf('MRP') >= 0 || up.indexOf('PRICE') >= 0 || up.indexOf('RATE') >= 0)) priceCol = ci;
       });
-      if (row[0] && row[0].toUpperCase().indexOf('CODE') < 0 && row[0].toUpperCase().indexOf('ITEM') < 0 && !/^\d/.test(row[0])) brand = row[0];
-      inT = true; continue;
-    }
-    if (!inT) {
-      if (isC(row[0]) && row[1] && isP(row[2])) items.push({ name: row[1], code: row[0], price: parseFloat(row[2]), brand: brand });
-      else if (row[0] && row.filter(function(c) { return c; }).length <= 3 && !isC(row[0]) && !isP(row[0])) brand = row[0];
+      inTable = true;
       continue;
     }
-    var nc = hc.name !== undefined ? hc.name : 1;
-    var cc = hc.code !== undefined ? hc.code : 0;
-    var pc = hc.price !== undefined ? hc.price : 2;
-    var nm = row[nc] || '', cd = row[cc] || '', pr = row[pc];
-    if (!nm || nm.toUpperCase() === 'ITEM' || nm.toUpperCase() === 'ITEM NAME') continue;
-    items.push({ name: String(nm), code: String(cd), price: isP(pr) ? parseFloat(pr) : null, brand: brand });
+
+    if (inTable && nameCol >= 0) {
+      // Standard table row
+      var itemName  = row[nameCol] || '';
+      var itemCode  = codeCol  >= 0 ? (row[codeCol]  || '') : '';
+      var itemPrice = priceCol >= 0 ? (row[priceCol] || '') : '';
+
+      if (!itemName || itemName.toUpperCase() === 'ITEM' || itemName.toUpperCase() === 'ITEM NAME' || itemName.toUpperCase() === 'DESCRIPTION') continue;
+      if (itemName.length < 2) continue;
+
+      items.push({
+        name:  itemName,
+        code:  itemCode,
+        price: isPrice(itemPrice) ? parseFloat(itemPrice) : null,
+        brand: brand
+      });
+    } else {
+      // No header found yet — try to auto-detect CODE | NAME | PRICE pattern
+      // Pattern 1: col0=code, col1=name, col2=price
+      if (isCode(row[0]) && row[1] && isPrice(row[2])) {
+        items.push({ name: row[1], code: row[0], price: parseFloat(row[2]), brand: brand });
+      }
+      // Pattern 2: col0=name, col1=code, col2=price
+      else if (!isCode(row[0]) && !isPrice(row[0]) && row[0].length > 1 && isCode(row[1]) && isPrice(row[2])) {
+        items.push({ name: row[0], code: row[1], price: parseFloat(row[2]), brand: brand });
+      }
+      // Pattern 3: col0=name, col1=price (no code)
+      else if (!isCode(row[0]) && !isPrice(row[0]) && row[0].length > 1 && isPrice(row[1])) {
+        items.push({ name: row[0], code: '', price: parseFloat(row[1]), brand: brand });
+      }
+    }
   }
+
   return items.filter(function(i) { return i.name && i.name.length > 1; });
 }
 
+// ================================================================
+// PREVIEW & IMPORT
+// ================================================================
 function showPreview() {
-  var pp = document.getElementById('pprev'); if (!pp) return;
+  var pp = document.getElementById('pprev');
+  if (!pp) return;
   pp.classList.add('show');
-  var cnt = document.getElementById('pp-cnt'); if (cnt) cnt.textContent = parsedItems.length + ' items detected';
-  var body = document.getElementById('pp-body'); if (!body) return;
-  body.innerHTML = parsedItems.slice(0, 100).map(function(d) {
-    return '<tr><td style="padding:5px 9px">' + X(d.name) + '</td><td style="padding:5px 9px">' + X(d.code||'') + '</td>' +
+  var cnt = document.getElementById('pp-cnt');
+  if (cnt) cnt.textContent = parsedItems.length + ' items detected';
+  var body = document.getElementById('pp-body');
+  if (!body) return;
+  body.innerHTML = parsedItems.slice(0, 150).map(function(d) {
+    return '<tr>' +
+      '<td style="padding:5px 9px">' + X(d.name) + '</td>' +
+      '<td style="padding:5px 9px;color:var(--ac2)">' + X(d.code || '—') + '</td>' +
       '<td style="padding:5px 9px">' + (d.price != null ? '₹' + d.price : '—') + '</td>' +
-      '<td style="padding:5px 9px"><span class="bdg">' + X(d.brand||'') + '</span></td></tr>';
-  }).join('') + (parsedItems.length > 100 ? '<tr><td colspan="4" style="text-align:center;color:var(--mu);padding:8px">…and ' + (parsedItems.length - 100) + ' more</td></tr>' : '');
+      '<td style="padding:5px 9px"><span class="bdg">' + X(d.brand || '') + '</span></td>' +
+    '</tr>';
+  }).join('') + (parsedItems.length > 150 ? '<tr><td colspan="4" style="text-align:center;color:var(--mu);padding:8px">…and ' + (parsedItems.length - 150) + ' more items</td></tr>' : '');
 }
 
 function importParsed() {
-  if (!parsedItems.length) return;
+  if (!parsedItems.length) { toast('Nothing to import', 'err'); return; }
   var folder = curFolder === 'all' ? 'all' : curFolder;
-  var added = 0;
+  var added = 0, updated = 0;
   parsedItems.forEach(function(d) {
-    var dup = d.code && DB.find(function(e) { return e.code && e.code === d.code; });
-    if (dup) { if (d.price) dup.price = d.price; if (d.name) dup.name = d.name; }
-    else { DB.push({ id: Date.now() + Math.random(), name: d.name, code: d.code || '', price: d.price, brand: d.brand || '', folder: folder }); added++; }
+    // Match by code first, then by exact name
+    var dup = (d.code && DB.find(function(e) { return e.code && e.code.trim() === d.code.trim(); }))
+           || DB.find(function(e) { return e.name && e.name.trim().toLowerCase() === d.name.trim().toLowerCase(); });
+    if (dup) {
+      if (d.price != null) dup.price = d.price;
+      if (d.code)  dup.code  = d.code;
+      if (d.brand) dup.brand = d.brand;
+      updated++;
+    } else {
+      DB.push({ id: Date.now() + Math.random(), name: d.name, code: d.code || '', price: d.price, brand: d.brand || '', folder: folder });
+      added++;
+    }
   });
   lsSet(LS_DB, DB);
-  cancelImport(); renderFolders(); renderDB();
-  toast('Imported ' + added + ' new (' + (parsedItems.length - added) + ' updated)', 'ok');
+  // Push to Sheet in background
+  if (getScriptUrl()) api('save_items', { items: DB }).catch(function() {});
+  cancelImport();
+  renderFolders();
+  renderDB();
+  toast('Imported ' + added + ' new, ' + updated + ' updated', 'ok');
 }
 
 function cancelImport() {
@@ -1400,46 +1586,212 @@ function cancelImport() {
 }
 
 // ================================================================
-// QUOTE FROM UPLOAD
+// QUOTATION FROM HANDWRITTEN PHOTO — Gemini Vision
 // ================================================================
-function handleQuoteFile(e) {
+var pendingQuoteRows = [];
+
+async function handleQuotePhoto(e) {
   var file = e.target.files[0];
   if (!file) return;
   e.target.value = '';
-  var st = document.getElementById('qu-status');
-  if (st) { st.style.display = 'block'; st.textContent = 'Reading file…'; }
-  readQuoteFile(file).then(function(rows) {
-    if (!rows.length) { if (st) st.textContent = 'No items found.'; return; }
-    rows.forEach(function(r) { addRow(r); });
-    ensureGhost(); calcTotals();
+
+  var key = getGemKey();
+  if (!key) { toast('Add Gemini API key in Database → Config first', 'err'); return; }
+
+  function setSt(icon, title, msg, pct) {
+    var box = document.getElementById('qu-status-box');
+    document.getElementById('qu-icon').textContent  = icon;
+    document.getElementById('qu-title').textContent = title;
+    document.getElementById('qu-msg').innerHTML     = msg;
+    document.getElementById('qu-pf').style.width   = pct + '%';
+    box.style.display = 'block';
+    document.getElementById('qu-preview').style.display = 'none';
+  }
+
+  try {
+    setSt('📖', 'Reading image…', 'Converting photo for AI…', 15);
+
+    // Detect if it's a PDF or image
+    var isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    var mimeType = isPDF ? 'application/pdf' : (file.type || 'image/jpeg');
+    var base64   = await fileToBase64(file);
+
+    setSt('🧠', 'Gemini Reading Handwriting…',
+      'Analysing your handwritten quotation request…<br>' +
+      '<span style="color:var(--ac)">This takes 5–15 seconds.</span>', 40);
+
+    var prompt = [
+      'This is a handwritten quotation requirement or order list for electrical items.',
+      'Extract every item the customer wants as a JSON array.',
+      '',
+      'For each item find:',
+      '- name: the item description (clean it up, fix spelling if needed)',
+      '- qty: quantity requested (default 1 if not mentioned)',
+      '- price: unit price if written, otherwise null',
+      '- code: product code if written, otherwise empty string',
+      '',
+      'Also try to match each item to this product database by looking for similar names:',
+      DB.slice(0, 200).map(function(d) { return (d.brand ? d.brand + ' ' : '') + d.name + (d.code ? ' (' + d.code + ')' : '') + (d.price ? ' ₹' + d.price : ''); }).join(', '),
+      '',
+      'If you find a match, use the database code and price.',
+      'Return ONLY a valid JSON array, no markdown, no explanation.',
+      'Format: [{"name":"item name","qty":1,"price":null,"code":""}]'
+    ].join('\n');
+
+    var resp = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + key,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: mimeType, data: base64 } },
+              { text: prompt }
+            ]
+          }],
+          generationConfig: { maxOutputTokens: 4000, temperature: 0 }
+        })
+      }
+    );
+
+    setSt('⚡', 'Processing…', 'Parsing AI response…', 80);
+
+    if (!resp.ok) {
+      var errData = await resp.json();
+      throw new Error((errData.error && errData.error.message) || 'Gemini error ' + resp.status);
+    }
+
+    var data    = await resp.json();
+    var rawText = geminiText(data);
+    var items   = parseGeminiJSON(rawText);
+
+    if (!items.length) throw new Error('No items found in the image. Try a clearer photo.');
+
+    // Enrich with DB matches
+    pendingQuoteRows = items.map(function(d) {
+      var itemName = String(d.name || '').trim();
+      // Try to find in DB
+      var match = null;
+      if (d.code) {
+        match = DB.find(function(e) { return e.code && e.code.toLowerCase() === String(d.code).toLowerCase(); });
+      }
+      if (!match && itemName) {
+        match = DB.find(function(e) { return e.name && e.name.toLowerCase() === itemName.toLowerCase(); });
+      }
+      if (!match && itemName) {
+        // Fuzzy: all words of query appear in DB item name
+        var words = itemName.toLowerCase().split(/\s+/).filter(function(w) { return w.length > 2; });
+        if (words.length > 0) {
+          match = DB.find(function(e) {
+            var hay = ((e.brand || '') + ' ' + (e.name || '')).toLowerCase();
+            return words.every(function(w) { return hay.indexOf(w) >= 0; });
+          });
+        }
+      }
+      return {
+        name:  match ? ((match.brand ? match.brand + ' - ' : '') + match.name) : itemName,
+        code:  match ? (match.code || '') : (d.code || ''),
+        price: match ? (match.price || d.price || null) : (d.price || null),
+        qty:   parseInt(d.qty) || 1,
+        disc:  0
+      };
+    });
+
+    // Show preview
+    var box = document.getElementById('qu-status-box');
+    box.style.display = 'none';
+    var prev = document.getElementById('qu-preview');
+    var prevBody = document.getElementById('qu-preview-body');
+    var prevCnt  = document.getElementById('qu-preview-cnt');
+    prevCnt.textContent = pendingQuoteRows.length + ' items extracted';
+    prevBody.innerHTML = pendingQuoteRows.map(function(r, i) {
+      return '<tr>' +
+        '<td style="padding:5px 9px">' + X(r.name) + '</td>' +
+        '<td style="padding:5px 9px;text-align:center">' + r.qty + '</td>' +
+        '<td style="padding:5px 9px">' + (r.price ? '₹' + r.price : '—') + '</td>' +
+        '<td style="padding:5px 9px;color:var(--ac2)">' + X(r.code || '—') + '</td>' +
+      '</tr>';
+    }).join('');
+    prev.style.display = 'block';
+
     var cnt = document.getElementById('qu-count');
-    if (cnt) cnt.textContent = rows.length + ' rows added';
-    if (st) st.style.display = 'none';
-    toast(rows.length + ' rows added to quotation', 'ok');
-  }).catch(function(err) {
-    if (st) st.textContent = 'Error: ' + err.message;
+    if (cnt) cnt.textContent = pendingQuoteRows.length + ' items found';
+    toast(pendingQuoteRows.length + ' items extracted from photo', 'ok');
+
+  } catch(err) {
+    document.getElementById('qu-status-box').style.display = 'none';
+    toast('Error: ' + err.message, 'err');
+    console.error('Quote photo error:', err);
+  }
+}
+
+function insertQuoteRows() {
+  if (!pendingQuoteRows.length) return;
+  pendingQuoteRows.forEach(function(r) { addRow(r); });
+  ensureGhost();
+  calcTotals();
+  document.getElementById('qu-preview').style.display = 'none';
+  var cnt = document.getElementById('qu-count');
+  if (cnt) cnt.textContent = '';
+  pendingQuoteRows = [];
+  toast('Rows added to quotation!', 'ok');
+}
+
+function cancelQuotePhoto() {
+  document.getElementById('qu-preview').style.display = 'none';
+  document.getElementById('qu-status-box').style.display = 'none';
+  pendingQuoteRows = [];
+}
+
+// ================================================================
+// SHARED GEMINI HELPERS
+// ================================================================
+function fileToBase64(file) {
+  return new Promise(function(resolve, reject) {
+    var reader = new FileReader();
+    reader.onerror  = function() { reject(new Error('Failed to read file')); };
+    reader.onload   = function() { resolve(reader.result.split(',')[1]); };
+    reader.readAsDataURL(file);
   });
 }
 
-async function readQuoteFile(file) {
-  var fname = file.name.toLowerCase();
-  var rows = [];
-  if (fname.endsWith('.xlsx') || fname.endsWith('.xls') || fname.endsWith('.csv')) {
-    var buf = await file.arrayBuffer();
-    var wb  = XLSX.read(new Uint8Array(buf), { type: 'array' });
-    var ws  = wb.Sheets[wb.SheetNames[0]];
-    var data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-    data.forEach(function(row) {
-      if (!row[0] && !row[1]) return;
-      var name2 = String(row[1] || row[0] || '').trim();
-      var qty   = parseFloat(row[2]) || 1;
-      if (!name2) return;
-      var match = DB.find(function(d) { return d.name && d.name.toLowerCase() === name2.toLowerCase(); });
-      rows.push({ name: match ? ((match.brand ? match.brand + ' - ' : '') + match.name) : name2, code: match ? match.code : '', price: match ? match.price : (parseFloat(row[3]) || ''), qty: qty });
-    });
-  }
-  return rows;
+function geminiText(data) {
+  try {
+    var parts = data.candidates[0].content.parts;
+    return parts.map(function(p) { return p.text || ''; }).join('').trim();
+  } catch(e) { return ''; }
 }
+
+function parseGeminiJSON(txt) {
+  if (!txt) return [];
+  // Strip ALL variations of markdown fences aggressively
+  txt = txt.replace(/^\s*```[a-zA-Z]*\s*/m, '').replace(/\s*```\s*$/m, '').trim();
+  // Remove any leading/trailing non-JSON characters
+  var start = txt.indexOf('[');
+  var end   = txt.lastIndexOf(']');
+  if (start >= 0 && end > start) {
+    txt = txt.slice(start, end + 1);
+  }
+  // Try direct parse
+  try { return JSON.parse(txt); } catch(e) {}
+  // Try finding first complete JSON array
+  var m = txt.match(/\[\s*\{[\s\S]*?\}\s*\]/);
+  if (m) { try { return JSON.parse(m[0]); } catch(e) {} }
+  // Try fixing truncated response (token limit cut it off)
+  var lastGood = txt.lastIndexOf('},');
+  if (lastGood > 0) {
+    try { return JSON.parse(txt.slice(0, lastGood) + '}]'); } catch(e) {}
+  }
+  // Last resort: try to fix common issues - trailing commas, etc
+  try {
+    var cleaned = txt.replace(/,\s*([}\]])/g, '$1').replace(/([{,])\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+    return JSON.parse(cleaned);
+  } catch(e) {}
+  console.error('parseGeminiJSON failed. Raw text:', txt.slice(0, 500));
+  return [];
+}
+
 
 // ================================================================
 // TOAST & UTILS

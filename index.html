@@ -487,6 +487,28 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
   </div>
 </div>
 
+<!-- Settings Modal (Admin only) -->
+<div class="modal" id="modal-settings">
+  <div class="mbox">
+    <div class="mtitle">⚙ Admin Settings</div>
+    <div class="fl" style="margin-bottom:10px">
+      <label>Gemini API Key</label>
+      <input id="set-gem" type="password" placeholder="AIza… (paste your new key)"
+        autocomplete="off" style="font-family:monospace;letter-spacing:1px">
+    </div>
+    <div style="font-size:10px;color:var(--mu);line-height:1.6;margin-bottom:12px">
+      Get a free key at <a href="https://aistudio.google.com" target="_blank" style="color:var(--ac2)">aistudio.google.com</a>
+      → Get API Key → Create API Key.<br>
+      Saved encrypted to Google Sheets — syncs to all devices automatically.
+    </div>
+    <div id="set-status" style="font-size:11px;margin-bottom:10px;display:none;padding:6px 10px;border-radius:5px;background:var(--sf2)"></div>
+    <div class="arow">
+      <button class="btn btn-p btn-sm" onclick="saveGeminiKey()">💾 Save &amp; Sync</button>
+      <button class="btn btn-g btn-sm" onclick="closeModal('modal-settings')">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>

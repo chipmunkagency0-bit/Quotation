@@ -686,21 +686,43 @@ async function fullSync() {
 }
 
 async function pushItems() {
-  // Send in chunks of 50 to avoid URL length limits with JSONP
-  var CHUNK = 50;
-  var total = DB.length;
-  
-  // First clear existing items
-  var clearOk = await api('save_items', { items: [], clear: true });
-  if (!clearOk || !clearOk.ok) return false;
+  // For writes we use fetch() with no-cors + POST
+  // no-cors means we can't read the response, but the write still happens
+  var url = getScriptUrl();
+  if (!url) return false;
 
-  // Send chunks
-  for (var i = 0; i < total; i += CHUNK) {
-    var chunk = DB.slice(i, i + CHUNK);
-    var r = await api('append_items', { items: chunk });
-    if (!r || !r.ok) return false;
+  var CHUNK = 100;
+  var total = DB.length;
+
+  try {
+    // Step 1: Clear existing (no-cors POST)
+    await fetch(url, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'save_items', items: [], clear: true })
+    });
+
+    // Wait a moment for clear to complete
+    await new Promise(function(r){ setTimeout(r, 1000); });
+
+    // Step 2: Append chunks
+    for (var i = 0; i < total; i += CHUNK) {
+      var chunk = DB.slice(i, i + CHUNK);
+      await fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'append_items', items: chunk })
+      });
+      // Small delay between chunks to avoid overwhelming Apps Script
+      await new Promise(function(r){ setTimeout(r, 500); });
+    }
+    return true;
+  } catch(e) {
+    console.error('pushItems error:', e);
+    return false;
   }
-  return true;
 }
 
 async function syncItemsToSheet() {

@@ -1823,142 +1823,388 @@ async function handleQuotePhoto(e) {
   if (!file) return;
   e.target.value = '';
 
-  var key = getGemKey();
-  if (!key) { toast('Add Gemini API key in Database → Config first', 'err'); return; }
+  var box     = document.getElementById('qu-status-box');
+  var prevEl  = document.getElementById('qu-preview');
+  var cntEl   = document.getElementById('qu-count');
 
   function setSt(icon, title, msg, pct) {
-    var box = document.getElementById('qu-status-box');
     document.getElementById('qu-icon').textContent  = icon;
     document.getElementById('qu-title').textContent = title;
     document.getElementById('qu-msg').innerHTML     = msg;
-    document.getElementById('qu-pf').style.width   = pct + '%';
+    document.getElementById('qu-pf').style.width    = pct + '%';
     box.style.display = 'block';
-    document.getElementById('qu-preview').style.display = 'none';
+    if (prevEl) prevEl.style.display = 'none';
   }
 
+  function showErr(title, lines) {
+    var html = lines.map(function(l) {
+      return '<div style="margin-bottom:5px">• ' + l + '</div>';
+    }).join('');
+    setSt('❌', title, '<div style="color:var(--ac3);font-size:11px;line-height:1.8">' + html + '</div>', 0);
+  }
+
+  // ── PRE-FLIGHT CHECKS ────────────────────────────────────────
+  var key = getGemKey();
+  if (!key) {
+    showErr('No Gemini API Key', [
+      'Login as Admin → click ⚙ Settings → paste your Gemini key.',
+      'Get a free key at <a href="https://aistudio.google.com" target="_blank" style="color:var(--ac2)">aistudio.google.com</a> → Get API Key.'
+    ]);
+    return;
+  }
+
+  // Check file type
+  var fname    = file.name.toLowerCase();
+  var ftype    = file.type || '';
+  var isImage  = ftype.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|bmp)$/.test(fname);
+  var isPDF    = ftype === 'application/pdf' || fname.endsWith('.pdf');
+  var isHEIC   = /\.(heic|heif)$/.test(fname) || ftype === 'image/heic' || ftype === 'image/heif';
+
+  if (isHEIC) {
+    showErr('HEIC Format Not Supported', [
+      'iPhones save photos in HEIC format which browsers cannot process.',
+      'Fix: On your iPhone go to Settings → Camera → Formats → select <b>Most Compatible</b>. This saves as JPEG.',
+      'Or: Open the photo and use AirDrop/Share → Save as JPEG before uploading.'
+    ]);
+    return;
+  }
+
+  if (!isImage && !isPDF) {
+    showErr('Unsupported File Type', [
+      'Supported: JPG, PNG, WebP, GIF, BMP (photos), or PDF.',
+      'You uploaded: ' + (ftype || fname),
+      'Take a photo with your camera or screenshot the list.'
+    ]);
+    return;
+  }
+
+  // Check file size
+  var sizeMB = file.size / (1024 * 1024);
+  if (sizeMB > 15) {
+    showErr('File Too Large (' + sizeMB.toFixed(1) + ' MB)', [
+      'Maximum size is 15 MB. Your file is ' + sizeMB.toFixed(1) + ' MB.',
+      'Compress the image before uploading, or take a new photo at lower resolution.',
+      'On most phones: screenshot instead of camera photo is smaller.'
+    ]);
+    return;
+  }
+
+  // ── READ FILE ────────────────────────────────────────────────
+  setSt('📖', 'Reading file…', 'Preparing ' + (isImage ? 'image' : 'PDF') + ' for AI analysis…', 10);
+
+  var base64, mimeType;
   try {
-    setSt('📖', 'Reading image…', 'Converting photo for AI…', 15);
+    base64 = await fileToBase64(file);
+    // Normalise MIME type — browsers sometimes give image/jpg instead of image/jpeg
+    mimeType = isPDF ? 'application/pdf'
+             : (ftype === 'image/jpg' ? 'image/jpeg' : (ftype || 'image/jpeg'));
+  } catch(e) {
+    showErr('Could Not Read File', [
+      'The file could not be loaded: ' + e.message,
+      'Try a different photo or take a new screenshot.'
+    ]);
+    return;
+  }
 
-    // Detect if it's a PDF or image
-    var isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-    var mimeType = isPDF ? 'application/pdf' : (file.type || 'image/jpeg');
-    var base64   = await fileToBase64(file);
+  var sizeKB = Math.round(base64.length * 0.75 / 1024);
+  setSt('🧠', 'AI Reading ' + (isImage ? 'Handwriting' : 'Document') + '…',
+    'Sending to Gemini 2.5 Flash (' + sizeKB + ' KB).<br>' +
+    'It will read every item, code, and quantity visible.<br>' +
+    '<span style="color:var(--ac)">Takes 5–20 seconds depending on complexity.</span>', 30);
 
-    setSt('🧠', 'Gemini Reading Handwriting…',
-      'Analysing your handwritten quotation request…<br>' +
-      '<span style="color:var(--ac)">This takes 5–15 seconds.</span>', 40);
+  // ── BUILD PROMPT ─────────────────────────────────────────────
+  // Keep DB lookup short — just codes and short names to save tokens
+  var dbLookup = DB.slice(0, 500).map(function(d) {
+    return [d.code, (d.brand ? d.brand.substring(0,10) : ''), d.name.substring(0,30), d.price || ''].filter(Boolean).join('|');
+  }).join('\n');
 
-    // Build a lookup string from DB for Gemini to match against
-    var dbLookup = DB.slice(0, 300).map(function(d) {
-      return (d.code ? d.code : '') + '|' + (d.brand ? d.brand + ' ' : '') + d.name + (d.price ? '|₹' + d.price : '');
-    }).join('\n');
+  var prompt = 'You are extracting items from a handwritten or printed quotation request for electrical products.\n\n' +
+    'TASK: Extract every line item into a JSON array.\n\n' +
+    'FOR EACH ITEM RETURN:\n' +
+    '- name: Full product description. Expand: SW=Switch, SOC=Socket, BP=Bell Push, PLTE=Plate, REG=Regulator, IND=Indicator, DP=Double Pole, 1W/2W=1Way/2Way\n' +
+    '- code: Product/part code if visible (numeric like 675513 or alphanumeric like EZ9F71106). Empty string if not visible.\n' +
+    '- qty: Quantity as a number. Default to 1 if not stated.\n' +
+    '- price: Unit price as number if shown. null otherwise.\n\n' +
+    'RULES:\n' +
+    '1. Extract EVERY row even if partially readable.\n' +
+    '2. If handwriting is unclear, best guess with (?) in name e.g. "16A Switch (?)".\n' +
+    '3. Numbers at line start/end = quantities. Numbers with Rs/rupee symbol = prices.\n' +
+    '4. Product codes are 5-8 digit numbers or codes like EZ9F71106, P1001, IN8401.\n\n' +
+    'PRODUCT DATABASE (code|brand|name|price):\n' + dbLookup + '\n\n' +
+    'Return ONLY a valid JSON array starting with [ and ending with ]. No other text.\n' +
+    '[{"name":"item name","code":"code or empty","qty":1,"price":null}]';
 
-    var prompt = [
-      'This image shows a handwritten or printed quotation request, order list, or invoice for electrical items.',
-      'Extract every line item as a JSON array.',
-      '',
-      'For each item extract:',
-      '- name: the item/product description. Clean up abbreviations where obvious (e.g. SW = Switch, SOC = Socket, BP = Bell Push, PLTE = Plate, REG = Regulator)',
-      '- code: the product/part code if visible (e.g. 675513, EZ9F71106). This is the most important field.',
-      '- qty: quantity (number). Default to 1 if not shown.',
-      '- price: unit price as a number if shown, otherwise null.',
-      '',
-      'MATCHING: Try to match each item against this product database using the code first, then the name:',
-      dbLookup,
-      '',
-      'If you find a match by code or name, use that matched code and price.',
-      'Return ONLY a raw JSON array. No markdown. No explanation.',
-      'Format: [{"name":"item name","code":"part code or empty","qty":1,"price":null}]',
-      'Extract ALL items. Do not skip any row.'
-    ].join('\n');
 
-    var resp = await fetch(
+  // ── CALL GEMINI WITH TIMEOUT ──────────────────────────────────
+  var resp;
+  try {
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timeoutId  = controller ? setTimeout(function() { controller.abort(); }, 45000) : null;
+
+    resp = await fetch(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + key,
       {
-        method: 'POST',
+        method:  'POST',
+        signal:  controller ? controller.signal : undefined,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{
-            parts: [
-              { inline_data: { mime_type: mimeType, data: base64 } },
-              { text: prompt }
-            ]
-          }],
-          generationConfig: { maxOutputTokens: 8000, temperature: 0 }
+          contents: [{ parts: [
+            { inline_data: { mime_type: mimeType, data: base64 } },
+            { text: prompt }
+          ]}],
+          generationConfig: { maxOutputTokens: 8000, temperature: 0 },
+          safetySettings: [
+            { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+          ]
         })
       }
     );
-
-    setSt('⚡', 'Processing…', 'Parsing AI response…', 80);
-
-    if (!resp.ok) {
-      var errData = await resp.json();
-      throw new Error((errData.error && errData.error.message) || 'Gemini error ' + resp.status);
+    if (timeoutId) clearTimeout(timeoutId);
+  } catch(e) {
+    if (e.name === 'AbortError') {
+      showErr('Request Timed Out (45 seconds)', [
+        'The AI took too long to respond.',
+        'Try: smaller/simpler image, fewer items per photo, or check your internet connection.',
+        'Large detailed photos take longer — try cropping to just the list.'
+      ]);
+    } else {
+      showErr('Network Error', [
+        'Could not reach Gemini API: ' + e.message,
+        'Check your internet connection.',
+        'If on mobile data, try switching to WiFi.'
+      ]);
     }
+    return;
+  }
 
-    var data    = await resp.json();
-    var rawText = geminiText(data);
-    var items   = parseGeminiJSON(rawText);
+  setSt('⚡', 'Parsing AI response…', 'Extracting items from AI output…', 80);
 
-    if (!items.length) throw new Error('No items found in the image. Try a clearer photo.');
+  // ── HANDLE API ERRORS ─────────────────────────────────────────
+  if (!resp.ok) {
+    var errBody = {};
+    try { errBody = await resp.json(); } catch(x) {}
+    var errMsg = (errBody.error && errBody.error.message) || ('HTTP ' + resp.status);
+    var errCode = errBody.error && errBody.error.code;
 
-    // Enrich with DB matches
-    pendingQuoteRows = items.map(function(d) {
-      var itemName = String(d.name || '').trim();
-      // Try to find in DB
-      var match = null;
-      if (d.code) {
-        match = DB.find(function(e) { return e.code && e.code.toLowerCase() === String(d.code).toLowerCase(); });
+    if (resp.status === 400 && errMsg.indexOf('image') >= 0) {
+      showErr('Image Could Not Be Processed', [
+        'Gemini could not read this image: ' + errMsg,
+        'Try: brighter lighting, hold camera steady, avoid blur.',
+        'Make sure the image is at least 300×300 pixels.',
+        'Screenshots usually work better than photos for printed lists.'
+      ]);
+    } else if (resp.status === 429) {
+      showErr('API Quota Exceeded — Try Again in a Minute', [
+        'You have hit the Gemini free tier rate limit.',
+        'Wait 60 seconds and try again.',
+        'If this keeps happening, check your quota at <a href="https://aistudio.google.com" target="_blank" style="color:var(--ac2)">aistudio.google.com</a>.'
+      ]);
+    } else if (resp.status === 403) {
+      showErr('API Key Invalid or Expired', [
+        'The Gemini API key was rejected (403 Forbidden).',
+        'Login as Admin → ⚙ Settings → paste a fresh API key.',
+        'Get a new key at <a href="https://aistudio.google.com" target="_blank" style="color:var(--ac2)">aistudio.google.com</a>.'
+      ]);
+    } else if (resp.status === 413 || errMsg.indexOf('too large') >= 0) {
+      showErr('Image Too Large for API', [
+        'The image file is too large even after compression.',
+        'Try: take a screenshot instead (much smaller file).',
+        'Or: crop the image to just the list before uploading.'
+      ]);
+    } else {
+      showErr('Gemini API Error (' + resp.status + ')', [
+        errMsg,
+        'Try again in a few seconds.',
+        'If it keeps failing, check your API key is correct.'
+      ]);
+    }
+    return;
+  }
+
+  // ── PARSE RESPONSE ────────────────────────────────────────────
+  var data, rawText, items;
+  try {
+    data = await resp.json();
+  } catch(e) {
+    showErr('Could Not Parse API Response', [
+      'Gemini returned an unexpected response format.',
+      'Try again — this is usually a temporary issue.'
+    ]);
+    return;
+  }
+
+  // Check for content filtering
+  var candidate = data.candidates && data.candidates[0];
+  if (!candidate) {
+    var feedback = data.promptFeedback;
+    if (feedback && feedback.blockReason) {
+      showErr('Image Blocked by Safety Filter', [
+        'Reason: ' + feedback.blockReason,
+        'This can happen with invoices containing personal information.',
+        'Try cropping out addresses/personal details and re-upload just the items list.'
+      ]);
+    } else {
+      showErr('No Response from AI', [
+        'Gemini returned no content.',
+        'Try a clearer image with better lighting.',
+        'Make sure the list is fully visible and not cut off.'
+      ]);
+    }
+    return;
+  }
+
+  // Check finish reason
+  var finishReason = candidate.finishReason;
+  rawText = geminiText(data);
+
+  if (!rawText) {
+    showErr('AI Returned Empty Response', [
+      'The image may be too dark, blurry, or low-resolution.',
+      'Tips for better results:',
+      '• Use good lighting — natural daylight works best',
+      '• Hold the camera steady and close to the paper',
+      '• Make sure all text is clearly visible',
+      '• Try a screenshot if working from a digital document'
+    ]);
+    return;
+  }
+
+  // Try to detect if Gemini returned a description instead of JSON
+  if (rawText.indexOf('[') < 0 && rawText.indexOf('{') < 0) {
+    // Gemini described the image instead of extracting — retry with stricter prompt
+    setSt('🔄', 'Retrying with stricter prompt…', 'First attempt returned text instead of data. Retrying…', 60);
+    try {
+      var retryResp = await fetch(
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + key,
+        {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [
+              { inline_data: { mime_type: mimeType, data: base64 } },
+              { text: 'Extract ALL items from this image into a JSON array ONLY. Each object must have: name (string), code (string, empty if none), qty (number), price (number or null). Return ONLY the JSON array starting with [ and ending with ]. No other text.' }
+            ]}],
+            generationConfig: { maxOutputTokens: 4000, temperature: 0 }
+          })
+        }
+      );
+      if (retryResp.ok) {
+        var retryData = await retryResp.json();
+        rawText = geminiText(retryData);
       }
-      if (!match && itemName) {
-        match = DB.find(function(e) { return e.name && e.name.toLowerCase() === itemName.toLowerCase(); });
-      }
-      if (!match && itemName) {
-        // Fuzzy: all words of query appear in DB item name
-        var words = itemName.toLowerCase().split(/\s+/).filter(function(w) { return w.length > 2; });
-        if (words.length > 0) {
+    } catch(re) { /* fallthrough with original text */ }
+  }
+
+  items = parseGeminiJSON(rawText);
+
+  // If still empty, show what Gemini said
+  if (!items || !items.length) {
+    var preview = rawText ? rawText.substring(0, 300) : 'No text extracted';
+    showErr('Could Not Extract Items', [
+      'AI response could not be parsed as item data.',
+      'What the AI saw: <i style="color:var(--mu)">' + X(preview) + (rawText.length > 300 ? '…' : '') + '</i>',
+      'Try: better lighting, straighter angle, less background clutter.',
+      'Make sure the list items are clearly written, one per line.'
+    ]);
+    return;
+  }
+
+  // ── ENRICH WITH DB MATCHES ────────────────────────────────────
+  pendingQuoteRows = items.map(function(d) {
+    var rawName = String(d.name || '').trim();
+    var rawCode = String(d.code || '').trim();
+    var match   = null;
+
+    // 1. Exact code match (most reliable)
+    if (rawCode) {
+      match = DB.find(function(e) {
+        return e.code && e.code.replace(/\s+/g,'').toLowerCase() === rawCode.replace(/\s+/g,'').toLowerCase();
+      });
+    }
+    // 2. Exact name match
+    if (!match && rawName) {
+      match = DB.find(function(e) {
+        return e.name && e.name.trim().toLowerCase() === rawName.toLowerCase();
+      });
+    }
+    // 3. Fuzzy: significant words all appear in DB item
+    if (!match && rawName.length > 3) {
+      var words = rawName.toLowerCase()
+        .replace(/[^a-z0-9 ]/g, ' ')
+        .split(/\s+/)
+        .filter(function(w) { return w.length > 2; });
+      if (words.length >= 2) {
+        // Try progressively relaxed matching
+        match = DB.find(function(e) {
+          var hay = ((e.brand||'') + ' ' + (e.name||'')).toLowerCase();
+          return words.every(function(w) { return hay.indexOf(w) >= 0; });
+        });
+        if (!match) {
+          // Match if at least 60% of words match
+          var threshold = Math.max(1, Math.floor(words.length * 0.6));
           match = DB.find(function(e) {
-            var hay = ((e.brand || '') + ' ' + (e.name || '')).toLowerCase();
-            return words.every(function(w) { return hay.indexOf(w) >= 0; });
+            var hay = ((e.brand||'') + ' ' + (e.name||'')).toLowerCase();
+            var hits = words.filter(function(w) { return hay.indexOf(w) >= 0; }).length;
+            return hits >= threshold;
           });
         }
       }
-      return {
-        name:  match ? ((match.brand ? match.brand + ' - ' : '') + match.name) : itemName,
-        code:  match ? (match.code || '') : (d.code || ''),
-        price: match ? (match.price || d.price || null) : (d.price || null),
-        qty:   parseInt(d.qty) || 1,
-        disc:  0
-      };
-    });
+    }
 
-    // Show preview
-    var box = document.getElementById('qu-status-box');
-    box.style.display = 'none';
-    var prev = document.getElementById('qu-preview');
-    var prevBody = document.getElementById('qu-preview-body');
-    var prevCnt  = document.getElementById('qu-preview-cnt');
-    prevCnt.textContent = pendingQuoteRows.length + ' items extracted';
-    prevBody.innerHTML = pendingQuoteRows.map(function(r, i) {
-      return '<tr>' +
-        '<td style="padding:5px 9px">' + X(r.name) + '</td>' +
-        '<td style="padding:5px 9px;text-align:center">' + r.qty + '</td>' +
-        '<td style="padding:5px 9px">' + (r.price ? '₹' + r.price : '—') + '</td>' +
-        '<td style="padding:5px 9px;color:var(--ac2)">' + X(r.code || '—') + '</td>' +
-      '</tr>';
-    }).join('');
-    prev.style.display = 'block';
+    var row = {
+      name:  match ? ((match.brand ? match.brand + ' - ' : '') + match.name) : rawName,
+      code:  match ? (match.code || rawCode) : rawCode,
+      price: match ? (match.price || d.price || null) : (d.price || null),
+      qty:   Math.max(1, parseInt(d.qty) || 1),
+      disc:  0,
+      _matched: !!match
+    };
+    return row;
+  }).filter(function(r) { return r.name || r.code; });
 
-    var cnt = document.getElementById('qu-count');
-    if (cnt) cnt.textContent = pendingQuoteRows.length + ' items found';
-    toast(pendingQuoteRows.length + ' items extracted from photo', 'ok');
-
-  } catch(err) {
-    document.getElementById('qu-status-box').style.display = 'none';
-    toast('Error: ' + err.message, 'err');
-    console.error('Quote photo error:', err);
+  if (!pendingQuoteRows.length) {
+    showErr('Extracted 0 Valid Items', [
+      'Items were found but none had recognisable names.',
+      'Try a clearer photo focusing just on the item list.'
+    ]);
+    return;
   }
+
+  // ── SHOW PREVIEW ──────────────────────────────────────────────
+  box.style.display = 'none';
+  var matched   = pendingQuoteRows.filter(function(r) { return r._matched; }).length;
+  var unmatched = pendingQuoteRows.length - matched;
+
+  var prev     = document.getElementById('qu-preview');
+  var prevBody = document.getElementById('qu-preview-body');
+  var prevCnt  = document.getElementById('qu-preview-cnt');
+
+  if (prevCnt) prevCnt.textContent = pendingQuoteRows.length + ' items — ' + matched + ' matched in DB, ' + unmatched + ' unmatched';
+
+  if (prevBody) prevBody.innerHTML = pendingQuoteRows.map(function(r) {
+    var rowStyle = r._matched ? '' : 'background:rgba(232,197,71,0.05)';
+    var badge    = r._matched
+      ? '<span style="color:var(--ok);font-size:10px">✓ matched</span>'
+      : '<span style="color:var(--mu);font-size:10px">⚠ not in DB</span>';
+    return '<tr style="' + rowStyle + '">' +
+      '<td style="padding:5px 9px">' + X(r.name) + ' ' + badge + '</td>' +
+      '<td style="padding:5px 9px;text-align:center;font-weight:600">' + r.qty + '</td>' +
+      '<td style="padding:5px 9px">' + (r.price ? '₹' + r.price : '—') + '</td>' +
+      '<td style="padding:5px 9px;color:var(--ac2);font-size:11px">' + X(r.code || '—') + '</td>' +
+    '</tr>';
+  }).join('');
+
+  if (prev) prev.style.display = 'block';
+  if (cntEl) cntEl.textContent = pendingQuoteRows.length + ' items found';
+
+  var summaryMsg = matched + ' of ' + pendingQuoteRows.length + ' items matched in your database';
+  if (unmatched > 0) summaryMsg += ' — ' + unmatched + ' unmatched items will be added without a code/price';
+  toast(summaryMsg, 'ok');
 }
+
 
 function insertQuoteRows() {
   if (!pendingQuoteRows.length) return;

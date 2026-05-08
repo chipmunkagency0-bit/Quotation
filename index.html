@@ -407,7 +407,8 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
     <div class="card"><div class="ctitle">Top Brands by Demand</div><div id="ch-br"></div></div>
     <div class="card"><div class="ctitle">Top Products by Qty</div><div id="ch-pr"></div></div>
     <div class="card"><div class="ctitle">Revenue by Brand (₹)</div><div id="ch-rv"></div></div>
-    <div class="card"><div class="ctitle">Quotations Over Time</div><div id="ch-tl"></div></div>
+    <div class="card"><div class="ctitle">Top Clients by Demand</div><div id="ch-cl"></div></div>
+    <div class="card" style="grid-column:1/-1"><div class="ctitle">Quotations Over Time</div><div id="ch-tl"></div></div>
   </div>
 </div>
 
@@ -777,7 +778,20 @@ function init() {
 
   // Date + quotation number defaults
   document.getElementById('m-date').valueAsDate = new Date();
-  document.getElementById('m-qno').value = 'Q-' + new Date().getFullYear() + '-001';
+  // Auto-increment quotation number from last saved
+  var hist = lsGet(LS_HIST, []);
+  var yr   = new Date().getFullYear();
+  var nextNum = 1;
+  if (hist.length) {
+    // Find highest number for this year
+    hist.forEach(function(h) {
+      var m = (h.qno || '').match(/Q-(\d{4})-(\d+)/);
+      if (m && parseInt(m[1]) === yr) {
+        nextNum = Math.max(nextNum, parseInt(m[2]) + 1);
+      }
+    });
+  }
+  document.getElementById('m-qno').value = 'Q-' + yr + '-' + String(nextNum).padStart(3,'0');
 
   // Add first row + ghost
   addRow();
@@ -829,13 +843,20 @@ async function doLogin() {
   var users = await getUsers();
   if (btn) { btn.textContent = 'Login'; btn.disabled = false; }
 
+  // Debug: log what users came back (remove after testing)
+  console.log('Users from Sheet:', JSON.stringify(users.map(function(u){ return {id:u.id, pwLen: String(u.password||'').length}; })));
+
   var match = users.find(function(u) {
-    return String(u.id).trim().toLowerCase() === id.toLowerCase()
-        && String(u.password).trim() === pw;
+    var uId  = String(u.id       || '').trim().toLowerCase();
+    var uPw  = String(u.password || '').trim();
+    var inId = String(id         || '').trim().toLowerCase();
+    var inPw = String(pw         || '').trim();
+    return uId === inId && uPw === inPw;
   });
   if (!match) {
-    err.textContent = url
-      ? 'Invalid ID or password. Check the Users tab in your Google Sheet.'
+    var hasSheet = !!getScriptUrl();
+    err.textContent = hasSheet
+      ? 'Invalid ID or password. Check the Users tab in your Google Sheet (columns: id | password | role).'
       : 'Invalid user ID or password.';
     err.classList.add('show');
     return;
@@ -860,9 +881,12 @@ async function getUsers() {
   if (url) {
     var r = await api('users');
     if (r && r.ok && r.users && r.users.length) {
+      console.log('Sheet returned', r.users.length, 'users');
       // Cache locally so offline login still works
       lsSet('meq_users_cache', r.users);
       return r.users;
+    } else {
+      console.warn('Sheet users call failed or returned empty:', JSON.stringify(r));
     }
   }
 
@@ -1270,6 +1294,12 @@ function loadQ(id) {
   ensureGhost();
   calcTotals();
   goPage('quotation');
+  // Update QNo to next in sequence after loaded one
+  var loadedNum = (q.qno || '').match(/Q-(\d{4})-(\d+)/);
+  if (loadedNum) {
+    var nextN = parseInt(loadedNum[2]) + 1;
+    document.getElementById('m-qno').value = 'Q-' + loadedNum[1] + '-' + String(nextN).padStart(3,'0');
+  }
   toast('Quotation loaded!', 'ok');
 }
 
@@ -1316,12 +1346,20 @@ function renderAnalytics() {
       totR += rev; totU += qty;
     });
   });
+  // Also track client demand
+  var cQty = {};
+  hist.forEach(function(q) {
+    var client = (q.client || 'Unknown').trim();
+    var cnt    = (q.rows || []).reduce(function(s, r) { return s + (r.qty || 0); }, 0);
+    cQty[client] = (cQty[client] || 0) + cnt;
+  });
+  var topClient = Object.entries(cQty).sort(function(a,b){return b[1]-a[1];})[0];
   var tb = Object.entries(bQty).sort(function(a, b) { return b[1] - a[1]; })[0];
   kEl.innerHTML =
-    kpi('Quotations',   hist.length,             'All time') +
+    kpi('Quotations',   hist.length,              'All time') +
     kpi('Revenue',      '₹' + (totR/1000).toFixed(1) + 'K', 'After tax') +
-    kpi('Top Brand',    tb ? tb[0] : '—',        tb ? tb[1] + ' units' : '') +
-    kpi('Total Units',  totU,                    'All items');
+    kpi('Top Brand',    tb ? tb[0] : '—',         tb ? tb[1] + ' units' : '') +
+    kpi('Top Client',   topClient ? topClient[0] : '—', topClient ? topClient[1] + ' units ordered' : '');
 
   function bars(elId, data, color, vf) {
     var el = document.getElementById(elId);
@@ -1336,6 +1374,7 @@ function renderAnalytics() {
   bars('ch-br', Object.entries(bQty).sort(function(a,b){return b[1]-a[1];}).slice(0,8), 'var(--ac)',  function(v){return v+'u';});
   bars('ch-pr', Object.entries(pQty).sort(function(a,b){return b[1]-a[1];}).slice(0,8), 'var(--ac2)', function(v){return v+'u';});
   bars('ch-rv', Object.entries(bRev).sort(function(a,b){return b[1]-a[1];}).slice(0,8), 'var(--ok)',  function(v){return '₹'+(v>=1000?(v/1000).toFixed(1)+'K':v.toFixed(0));});
+  bars('ch-cl', Object.entries(cQty).sort(function(a,b){return b[1]-a[1];}).slice(0,8), '#a78bfa',   function(v){return v+'u';});
 
   var wk = {};
   hist.forEach(function(q) {
@@ -2433,27 +2472,91 @@ function getSalt() {
 async function saveGeminiKey() {
   var raw = document.getElementById('set-gem').value.trim();
   var st  = document.getElementById('set-status');
-  if (!raw) { st.textContent = 'Please paste your Gemini API key.'; st.style.color = 'var(--ac3)'; st.style.display = 'block'; return; }
-  if (!raw.startsWith('AIza')) { st.textContent = 'Gemini keys start with "AIza". Check your key.'; st.style.color = 'var(--ac3)'; st.style.display = 'block'; return; }
 
-  st.textContent = 'Saving…'; st.style.color = 'var(--mu)'; st.style.display = 'block';
+  if (!raw) {
+    st.textContent = 'Please paste your Gemini API key.';
+    st.style.color = 'var(--ac3)'; st.style.display = 'block'; return;
+  }
+  if (!raw.startsWith('AIza')) {
+    st.textContent = 'Keys start with “AIza” — check your key.';
+    st.style.color = 'var(--ac3)'; st.style.display = 'block'; return;
+  }
 
-  // Obfuscate before storing
-  var enc = obfuscate(raw, getSalt());
+  st.textContent = 'Verifying key…'; st.style.color = 'var(--mu)'; st.style.display = 'block';
 
-  // Save to Sheet Config
-  var r = await api('set_config', { key: 'gem_enc', value: enc });
-  if (r && r.ok) {
-    // Set in memory for immediate use
-    window._gemKey = raw;
-    lsSet('meq_gk_cache', raw); // local cache (plain — stays on this device only)
-    st.textContent = '✓ Saved and synced to all devices!';
-    st.style.color = 'var(--ok)';
-    toast('Gemini key saved — active on all devices', 'ok');
-    setTimeout(function() { closeModal('modal-settings'); st.style.display = 'none'; }, 1500);
+  // Quick test: call Gemini with a tiny prompt to verify the key works
+  try {
+    var testResp = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + raw,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: 'Reply with the single word OK' }] }],
+          generationConfig: { maxOutputTokens: 5 }
+        })
+      }
+    );
+    if (testResp.status === 400 || testResp.status === 403) {
+      st.textContent = 'Invalid API key (rejected by Gemini). Check the key and try again.';
+      st.style.color = 'var(--ac3)'; return;
+    }
+    if (testResp.status === 429) {
+      // Quota issue but key is valid — continue saving
+    }
+  } catch(e) {
+    st.textContent = 'Network error verifying key: ' + e.message;
+    st.style.color = 'var(--ac3)'; return;
+  }
+
+  st.textContent = 'Saving to all devices…'; st.style.color = 'var(--mu)';
+
+  // Save locally first (works immediately on this device)
+  window._gemKey = raw;
+  lsSet('meq_gk_cache', raw);
+
+  // Save to Sheet via no-cors POST (works around CORS for writes)
+  // Can't read response with no-cors, so we save locally and verify after
+  var url = getScriptUrl();
+  if (url) {
+    try {
+      var enc = obfuscate(raw, getSalt());
+      await fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ action: 'set_config', key: 'gem_enc', value: enc })
+      });
+      // Wait briefly then verify by reading back
+      await new Promise(function(r) { setTimeout(r, 2000); });
+      var cfg = await api('config');
+      if (cfg && cfg.ok && cfg.config && cfg.config.gem_enc) {
+        var verified = deobfuscate(cfg.config.gem_enc, getSalt());
+        if (verified === raw) {
+          st.textContent = '✓ Saved and verified on all devices!';
+          st.style.color = 'var(--ok)';
+          toast('Gemini key saved — active everywhere', 'ok');
+          setTimeout(function() { closeModal('modal-settings'); st.style.display = 'none'; }, 1800);
+          return;
+        }
+      }
+      // Sheet save may have worked but verification is uncertain
+      st.textContent = '✓ Saved locally. Sheet sync may take a moment.';
+      st.style.color = 'var(--ok)';
+      toast('Key saved — active on this device now', 'ok');
+      setTimeout(function() { closeModal('modal-settings'); st.style.display = 'none'; }, 1800);
+    } catch(e) {
+      // Save locally worked even if Sheet failed
+      st.textContent = '✓ Saved on this device. Sheet sync failed — try reconnecting.';
+      st.style.color = 'var(--ac)';
+      setTimeout(function() { closeModal('modal-settings'); st.style.display = 'none'; }, 2500);
+    }
   } else {
-    st.textContent = 'Failed to save to Sheet. Check connection.';
-    st.style.color = 'var(--ac3)';
+    // No Sheet URL — local only
+    st.textContent = '✓ Saved on this device (no Sheet connected).';
+    st.style.color = 'var(--ok)';
+    toast('Key saved locally', 'ok');
+    setTimeout(function() { closeModal('modal-settings'); st.style.display = 'none'; }, 1500);
   }
 }
 

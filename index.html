@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -516,7 +515,8 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
 // CONFIG
 // ================================================================
 var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx16uLQhIPphsI7WpCM6hxbVTxYUNlSJPxVHxxnJzPcx1z56agB7AEf_Un7tVjZ2MNa/exec';
-var OCR_MODEL = 'gemini-2.5-pro';
+// Tried in order. Pro is best quality; Flash and 1.5-Pro are backups when Pro is busy/rate-limited.
+var GEMINI_MODELS = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-1.5-pro'];
 
 // ================================================================
 // SEED DATA (built-in items, used if no Sheet connected)
@@ -1676,29 +1676,22 @@ async function parseDBPDF(file) {
       'For invoices also include: "qty": number'
     ].join('\n');
 
-    var resp = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/' + OCR_MODEL + ':generateContent?key=' + key,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { inline_data: { mime_type: 'application/pdf', data: base64 } },
-              { text: prompt }
-            ]
-          }],
-          generationConfig: { maxOutputTokens: 65535, temperature: 0 }
-        })
+    var resp = await callGeminiWithFallback(key, {
+      contents: [{
+        parts: [
+          { inline_data: { mime_type: 'application/pdf', data: base64 } },
+          { text: prompt }
+        ]
+      }],
+      generationConfig: { maxOutputTokens: 65535, temperature: 0 }
+    }, {
+      timeoutMs: 120000,
+      onStatus: function(msg) {
+        st('', 'Gemini Extracting...', msg + '<br><span style="color:var(--mu)">Auto-retry handling this for you.</span>', 50);
       }
-    );
+    });
 
-    st('', 'Parsing response...', 'AI response received, extracting items...', 80);
-
-    if (!resp.ok) {
-      var errData = await resp.json();
-      throw new Error((errData.error && errData.error.message) || 'System error ' + resp.status);
-    }
+    st('', 'Parsing response...' + (resp._fellBack ? ' (used backup ' + resp._model + ')' : ''), 'AI response received, extracting items...', 80);
 
     var data    = await resp.json();
     var rawText = geminiText(data);
@@ -1995,92 +1988,76 @@ async function handleQuotePhoto(e) {
     '[{"brand":"brand or empty","name":"item name","code":"code or empty","qty":1,"price":null}]';
 
 
-  //  CALL GEMINI WITH TIMEOUT 
+  //  CALL GEMINI WITH RETRY + MODEL FALLBACK
   var resp;
   try {
-    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    var timeoutId  = controller ? setTimeout(function() { controller.abort(); }, 90000) : null;
-
-    resp = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/' + OCR_MODEL + ':generateContent?key=' + key,
-      {
-        method:  'POST',
-        signal:  controller ? controller.signal : undefined,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [
-            { inline_data: { mime_type: mimeType, data: base64 } },
-            { text: prompt }
-          ]}],
-          generationConfig: { maxOutputTokens: 8000, temperature: 0 },
-          safetySettings: [
-            { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-          ]
-        })
+    resp = await callGeminiWithFallback(key, {
+      contents: [{ parts: [
+        { inline_data: { mime_type: mimeType, data: base64 } },
+        { text: prompt }
+      ]}],
+      generationConfig: { maxOutputTokens: 8000, temperature: 0 },
+      safetySettings: [
+        { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+      ]
+    }, {
+      timeoutMs: 90000,
+      onStatus: function(msg) {
+        setSt('', 'AI Reading Handwriting...', msg + '<br><span style="color:var(--mu)">Auto-retry in progress - just wait.</span>', 50);
       }
-    );
-    if (timeoutId) clearTimeout(timeoutId);
-  } catch(e) {
-    if (e.name === 'AbortError') {
-      showErr('Request Timed Out (90 seconds)', [
-        'The AI took too long to respond.',
-        'Try: smaller/simpler image, fewer items per photo, or check your internet connection.',
-        'Large detailed photos take longer - try cropping to just the list.'
-      ]);
-    } else {
-      showErr('Network Error', [
-        'Could not reach the system service: ' + e.message,
-        'Check your internet connection.',
-        'If on mobile data, try switching to WiFi.'
-      ]);
-    }
-    return;
-  }
-
-  setSt('', 'Parsing AI response...', 'Extracting items from AI output...', 80);
-
-  //  HANDLE API ERRORS 
-  if (!resp.ok) {
-    var errBody = {};
-    try { errBody = await resp.json(); } catch(x) {}
-    var errMsg = (errBody.error && errBody.error.message) || ('HTTP ' + resp.status);
-    var errCode = errBody.error && errBody.error.code;
-
-    if (resp.status === 400 && errMsg.indexOf('image') >= 0) {
+    });
+  } catch(err) {
+    var errMsg = err.message || 'Unknown error';
+    if (err.permanent && err.status === 400 && errMsg.indexOf('image') >= 0) {
       showErr('Image Could Not Be Processed', [
         'Gemini could not read this image: ' + errMsg,
         'Try: brighter lighting, hold camera steady, avoid blur.',
         'Make sure the image is at least 300-300 pixels.',
         'Screenshots usually work better than photos for printed lists.'
       ]);
-    } else if (resp.status === 429) {
-      showErr('Service Busy - Try Again in a Minute', [
-        'The system service is temporarily busy.',
-        'Wait 60 seconds and try again.',
-        'If this keeps happening, try again later.'
-      ]);
-    } else if (resp.status === 403) {
+    } else if (err.permanent && err.status === 403) {
       showErr('System Not Configured', [
         'System not configured.'
       ]);
-    } else if (resp.status === 413 || errMsg.indexOf('too large') >= 0) {
+    } else if (err.permanent && err.status === 413) {
       showErr('Image Too Large', [
         'The image file is too large even after compression.',
         'Try: take a screenshot instead (much smaller file).',
         'Or: crop the image to just the list before uploading.'
       ]);
+    } else if (err.type === 'timeout') {
+      showErr('All AI Models Timed Out', [
+        'Tried Pro, Flash and 1.5-Pro - all took too long.',
+        'Try: smaller/simpler image, fewer items per photo, or check your internet.',
+        'Large detailed photos take longer - try cropping to just the list.'
+      ]);
+    } else if (err.type === 'network') {
+      showErr('Network Error', [
+        'Could not reach the AI service: ' + errMsg,
+        'Check your internet connection.',
+        'If on mobile data, try switching to WiFi.'
+      ]);
+    } else if (err.status === 429) {
+      showErr('Service Busy on All Models', [
+        'Tried Pro, Flash and 1.5-Pro - all rate-limited right now.',
+        'Wait a minute and try again.',
+        'If this keeps happening, try again later.'
+      ]);
     } else {
-      showErr('System Error (' + resp.status + ')', [
+      showErr('System Error (' + (err.status || '?') + ')', [
         errMsg,
+        'All backup models also failed.',
         'Try again in a few seconds.',
         'If it keeps failing, check the device settings.'
       ]);
     }
     return;
   }
+
+  setSt('', 'Parsing AI response...' + (resp._fellBack ? ' (used backup ' + resp._model + ')' : ''), 'Extracting items from AI output...', 80);
 
   //  PARSE RESPONSE 
   var data, rawText, items;
@@ -2135,24 +2112,15 @@ async function handleQuotePhoto(e) {
     // Gemini described the image instead of extracting - retry with stricter prompt
     setSt('', 'Retrying with stricter prompt...', 'First attempt returned text instead of data. Retrying...', 60);
     try {
-      var retryResp = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/models/' + OCR_MODEL + ':generateContent?key=' + key,
-        {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [
-              { inline_data: { mime_type: mimeType, data: base64 } },
-              { text: 'Extract ALL items from this image into a JSON array ONLY. Each object must have: brand (string, inherited from headings like ALZY until a new brand appears), name (string), code (string, empty if none), qty (number), price (number or null). Return ONLY the JSON array starting with [ and ending with ]. No other text.' }
-            ]}],
-            generationConfig: { maxOutputTokens: 4000, temperature: 0 }
-          })
-        }
-      );
-      if (retryResp.ok) {
-        var retryData = await retryResp.json();
-        rawText = geminiText(retryData);
-      }
+      var retryResp = await callGeminiWithFallback(key, {
+        contents: [{ parts: [
+          { inline_data: { mime_type: mimeType, data: base64 } },
+          { text: 'Extract ALL items from this image into a JSON array ONLY. Each object must have: brand (string, inherited from headings like ALZY until a new brand appears), name (string), code (string, empty if none), qty (number), price (number or null). Return ONLY the JSON array starting with [ and ending with ]. No other text.' }
+        ]}],
+        generationConfig: { maxOutputTokens: 4000, temperature: 0 }
+      }, { timeoutMs: 90000 });
+      var retryData = await retryResp.json();
+      rawText = geminiText(retryData);
     } catch(re) { /* fallthrough with original text */ }
   }
 
@@ -2441,6 +2409,109 @@ function geminiText(data) {
     var parts = data.candidates[0].content.parts;
     return parts.map(function(p) { return p.text || ''; }).join('').trim();
   } catch(e) { return ''; }
+}
+
+// Calls Gemini with two layers of resilience:
+//   1. Per-model retry with backoff on 429/5xx/timeout/network (3 attempts, waits 0s, 3s, 8s)
+//   2. Model fallback: Pro -> Flash -> 1.5-Pro if all retries on a model fail or it returns 404
+// Throws on permanent client errors (400/403/413) or when all models are exhausted.
+// On success, returns the Response with `_model` and `_fellBack` annotations.
+async function callGeminiWithFallback(key, body, opts) {
+  opts = opts || {};
+  var timeoutMs = opts.timeoutMs || 90000;
+  var onStatus  = opts.onStatus  || function(){};
+
+  var lastErr = { status: 0, message: 'No models attempted', model: '' };
+
+  for (var m = 0; m < GEMINI_MODELS.length; m++) {
+    var model    = GEMINI_MODELS[m];
+    var fellBack = m > 0;
+    var backoffs = [0, 3000, 8000];
+
+    if (fellBack) {
+      onStatus('Primary model unavailable - trying backup ' + model + '...');
+    }
+
+    for (var attempt = 0; attempt < backoffs.length; attempt++) {
+      if (attempt > 0) {
+        onStatus('AI busy - waiting ' + (backoffs[attempt]/1000) + 's then retry ' + attempt + '/2' + (fellBack ? ' on ' + model : ''));
+        await new Promise(function(r) { setTimeout(r, backoffs[attempt]); });
+      }
+
+      var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var timeoutId  = controller ? setTimeout(function() { try { controller.abort(); } catch(_){} }, timeoutMs) : null;
+
+      var resp;
+      try {
+        resp = await fetch(
+          'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + key,
+          {
+            method:  'POST',
+            signal:  controller ? controller.signal : undefined,
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify(body)
+          }
+        );
+        if (timeoutId) clearTimeout(timeoutId);
+      } catch(e) {
+        if (timeoutId) clearTimeout(timeoutId);
+        var isTimeout = (e.name === 'AbortError');
+        lastErr = {
+          status:   0,
+          message:  isTimeout ? ('Timed out after ' + (timeoutMs/1000) + 's') : ('Network: ' + e.message),
+          model:    model,
+          fellBack: fellBack,
+          type:     isTimeout ? 'timeout' : 'network'
+        };
+        continue;
+      }
+
+      if (resp.ok) {
+        resp._model    = model;
+        resp._fellBack = fellBack;
+        return resp;
+      }
+
+      var errBody = null;
+      try { errBody = await resp.clone().json(); } catch(_) {}
+      var errMsg = (errBody && errBody.error && errBody.error.message) || ('HTTP ' + resp.status);
+
+      // Permanent client errors - stop immediately, no retry, no fallback
+      if (resp.status === 400 || resp.status === 403 || resp.status === 413) {
+        var permErr = new Error(errMsg);
+        permErr.status    = resp.status;
+        permErr.errBody   = errBody;
+        permErr.model     = model;
+        permErr.fellBack  = fellBack;
+        permErr.permanent = true;
+        throw permErr;
+      }
+
+      // Model not available - skip remaining attempts on this model
+      if (resp.status === 404) {
+        lastErr = { status: 404, message: errMsg, model: model, fellBack: fellBack, type: 'model-unavailable' };
+        break;
+      }
+
+      // Transient (429, 500, 502, 503, 504) - retry same model
+      lastErr = {
+        status:   resp.status,
+        message:  errMsg,
+        errBody:  errBody,
+        model:    model,
+        fellBack: fellBack,
+        type:     'transient'
+      };
+    }
+  }
+
+  var finalErr = new Error(lastErr.message);
+  finalErr.status    = lastErr.status;
+  finalErr.errBody   = lastErr.errBody;
+  finalErr.model     = lastErr.model;
+  finalErr.type      = lastErr.type;
+  finalErr.allFailed = true;
+  throw finalErr;
 }
 
 function parseGeminiJSON(txt) {

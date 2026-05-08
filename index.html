@@ -682,6 +682,10 @@ async function connectSheets() {
 async function fullSync() {
   var url = getScriptUrl();
   if (!url) return;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    setSyncStatus('err', 'offline');
+    return;
+  }
   setSyncStatus('spin', 'syncing');
   try {
     var [items, folds, hist, cfg] = await Promise.all([
@@ -712,7 +716,8 @@ async function fullSync() {
     setSyncStatus('ok', 'synced');
     renderFolders(); renderDB();
   } catch(e) {
-    setSyncStatus('err', 'sync failed');
+    var trulyOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    setSyncStatus('err', trulyOffline ? 'offline' : 'sheet unreachable');
   }
 }
 
@@ -833,7 +838,16 @@ function init() {
 
   // Auto-connect and sync on every load (fetches fresh gem key from Sheet too)
   setSyncStatus('spin', 'syncing');
-  fullSync().catch(function() { setSyncStatus('err', 'offline'); });
+  fullSync().catch(function() {
+    var trulyOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    setSyncStatus('err', trulyOffline ? 'offline' : 'sheet unreachable');
+  });
+
+  // Live status when device connectivity changes
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('online',  function() { setSyncStatus('spin', 'syncing'); fullSync().catch(function(){}); });
+    window.addEventListener('offline', function() { setSyncStatus('err', 'offline'); });
+  }
 }
 
 // ================================================================
@@ -1665,7 +1679,7 @@ function parseDBExcel(file) {
 // ================================================================
 async function parseDBPDF(file) {
   var key = getGemKey();
-  if (!key) { toast('System not configured', 'err'); return; }
+  if (!key) { promptForKey('PDF extraction'); return; }
 
   var box = document.getElementById('pdfs');
   function st(icon, title, msg, pct) {
@@ -1935,10 +1949,15 @@ async function handleQuotePhoto(e) {
     setSt('', title, '<div style="color:var(--ac3);font-size:11px;line-height:1.8">' + html + '</div>', 0);
   }
 
-  //  PRE-FLIGHT CHECKS 
+  //  PRE-FLIGHT CHECKS
   var key = getGemKey();
   if (!key) {
-    setSt('', 'System not configured', '', 0);
+    showErr('Gemini Key Not Set on This Device', [
+      'The AI key is missing - this can happen if browser storage was cleared, or this is a fresh install.',
+      'Fix: tap <b>Settings</b> (top right) and paste your Gemini API key.',
+      'The key is saved locally so you only do this once per device.'
+    ]);
+    promptForKey('photo extraction');
     return;
   }
 
@@ -2449,6 +2468,17 @@ function fileToBase64(file) {
     reader.onload   = function() { resolve(reader.result.split(',')[1]); };
     reader.readAsDataURL(file);
   });
+}
+
+// Toast + auto-open Settings when the Gemini key is missing on this device.
+// `context` is a short label (e.g. "PDF extraction") to make the toast specific.
+function promptForKey(context) {
+  toast('Gemini key not set for ' + (context || 'AI calls') + ' - opening Settings', 'err');
+  setTimeout(function() {
+    try { openModal('modal-settings'); } catch(_) {}
+    var input = document.getElementById('set-gem');
+    if (input) { try { input.focus(); } catch(_){} }
+  }, 600);
 }
 
 function geminiText(data) {

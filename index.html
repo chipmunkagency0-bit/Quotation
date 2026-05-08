@@ -227,6 +227,12 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
   tbody td input{border:none!important;background:transparent!important;color:#000!important;font-size:11px;padding:0;width:100%}
   .csn{color:#555!important;font-size:10px;text-align:center}
 }
+.hint-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:8px}
+.mic-btn{background:var(--sf2);border:1px solid var(--bd);border-radius:6px;padding:4px 9px;color:var(--mu);cursor:pointer;font-family:"DM Mono",monospace;font-size:10px;display:inline-flex;align-items:center;gap:5px;transition:all .15s;flex-shrink:0}
+.mic-btn:hover{border-color:var(--ac);color:var(--ac)}
+.mic-btn svg{width:11px;height:11px}
+.mic-btn.listening{background:rgba(255,107,107,.15);border-color:var(--ac3);color:var(--ac3);animation:micPulse 1.2s ease-in-out infinite}
+@keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,107,107,.5)}50%{box-shadow:0 0 0 5px rgba(255,107,107,0)}}
 </style>
 </head>
 <body>
@@ -315,6 +321,20 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
     <p style="font-size:11px;color:var(--mu);margin-bottom:12px">
       Take a photo of a handwritten quotation request - Gemini AI reads the items, quantities and prices and fills the rows automatically.
     </p>
+    <div style="margin-bottom:10px">
+      <div class="hint-row">
+        <label style="font-size:11px;color:var(--mu)">
+          Extra instructions for AI <span style="opacity:.7">(optional - like a chat prompt)</span>
+        </label>
+        <button type="button" class="mic-btn" id="qu-hint-mic" onclick="toggleVoiceInput('qu-hint','qu-hint-mic')" title="Speak instead of type">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+          <span class="mic-label">Voice</span>
+        </button>
+      </div>
+      <textarea id="qu-hint" rows="2"
+        placeholder='e.g. "all rows are MYLINC unless stated", "ignore the total at the bottom", "supplier is Schneider"'
+        style="width:100%;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;padding:7px 9px;color:var(--fg);font-family:inherit;font-size:12px;resize:vertical;box-sizing:border-box"></textarea>
+    </div>
     <div class="arow" style="margin-top:0;flex-wrap:wrap">
       <button class="btn btn-p btn-sm" onclick="document.getElementById('qu-cam').click()">Take Photo</button>
       <button class="btn btn-g btn-sm" onclick="document.getElementById('qu-gal').click()">Gallery / Image</button>
@@ -427,6 +447,20 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
   <!-- Upload -->
   <div class="card">
     <div class="ctitle">Upload &amp; Import</div>
+    <div style="margin-bottom:12px">
+      <div class="hint-row">
+        <label style="font-size:11px;color:var(--mu)">
+          Extra instructions for AI <span style="opacity:.7">(optional - applies to PDF extraction)</span>
+        </label>
+        <button type="button" class="mic-btn" id="db-hint-mic" onclick="toggleVoiceInput('db-hint','db-hint-mic')" title="Speak instead of type">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+          <span class="mic-label">Voice</span>
+        </button>
+      </div>
+      <textarea id="db-hint" rows="2"
+        placeholder='e.g. "this is a Havells price list", "skip discontinued items", "treat the second column as MRP"'
+        style="width:100%;background:var(--sf2);border:1px solid var(--bd);border-radius:6px;padding:7px 9px;color:var(--fg);font-family:inherit;font-size:12px;resize:vertical;box-sizing:border-box"></textarea>
+    </div>
     <div class="dz" id="dz"
       ondragover="event.preventDefault();this.classList.add('drag')"
       ondragleave="this.classList.remove('drag')"
@@ -1653,10 +1687,18 @@ async function parseDBPDF(file) {
       'Detecting multi-column tables, multi-pole variants, multi-colour refs...<br>' +
       '<span style="color:var(--ac)">Large catalogues can take 20-40 seconds.</span>', 30);
 
+    var dbHintEl = document.getElementById('db-hint');
+    var dbHint   = dbHintEl ? (dbHintEl.value || '').trim() : '';
+
     var prompt = [
       'You are a data extraction engine for electrical product catalogues, price lists, and invoices.',
       'Extract EVERY product entry from this PDF as a flat JSON array.',
-      '',
+      ''
+    ].concat(dbHint ? [
+      'USER CONTEXT (authoritative - apply when interpreting the document):',
+      dbHint,
+      ''
+    ] : []).concat([
       'DOCUMENT TYPES YOU MAY SEE:',
       '- Price list / catalogue: has item name, reference/code, and MRP/list price columns',
       '- Tax invoice / delivery note: has description, HSN/SAC code, Part No. (product code), and quantity',
@@ -1965,7 +2007,12 @@ async function handleQuotePhoto(e) {
     return [d.code, (d.brand ? d.brand.substring(0,10) : ''), d.name.substring(0,30), d.price || ''].filter(Boolean).join('|');
   }).join('\n');
 
+  var userHintEl = document.getElementById('qu-hint');
+  var userHint   = userHintEl ? (userHintEl.value || '').trim() : '';
+  var hintBlock  = userHint ? ('USER CONTEXT (authoritative - apply when interpreting the image):\n' + userHint + '\n\n') : '';
+
   var prompt = 'You are a careful OCR and quotation extraction engine for electrical products. Read handwriting conservatively, but do not skip visible rows.\n\n' +
+    hintBlock +
     'TASK: Extract every line item into a JSON array. Understand brand headings and repeated marks.\n\n' +
     'FOR EACH ITEM RETURN:\n' +
     '- brand: Brand/range if visible or inherited from a heading. Empty string if unknown.\n' +
@@ -2409,6 +2456,76 @@ function geminiText(data) {
     var parts = data.candidates[0].content.parts;
     return parts.map(function(p) { return p.text || ''; }).join('').trim();
   } catch(e) { return ''; }
+}
+
+// Voice-to-text using the browser's built-in SpeechRecognition (free, no API).
+// Click mic to start, click again to stop. Auto-stops after silence.
+// Final transcripts append to the textarea; interim results show live.
+function toggleVoiceInput(targetId, btnId) {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var btn = document.getElementById(btnId);
+  var ta  = document.getElementById(targetId);
+  if (!btn || !ta) return;
+
+  if (!SR) {
+    toast('Voice input not supported in this browser. Try Chrome, Edge or Safari.', 'err');
+    return;
+  }
+
+  // Toggle off if already running
+  if (btn._recog) {
+    try { btn._recog.stop(); } catch(_){}
+    return;
+  }
+
+  var recog = new SR();
+  recog.lang           = 'en-IN';
+  recog.continuous     = true;
+  recog.interimResults = true;
+
+  // Capture committed text once at start so live interim results don't accumulate.
+  var baseText = ta.value ? ta.value.replace(/\s+$/, '') + ' ' : '';
+
+  recog.onresult = function(e) {
+    var finalChunk = '';
+    var interimChunk = '';
+    for (var i = e.resultIndex; i < e.results.length; i++) {
+      var t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) finalChunk += t;
+      else interimChunk += t;
+    }
+    if (finalChunk) {
+      baseText += finalChunk.trim() + ' ';
+    }
+    ta.value = (baseText + interimChunk).replace(/\s+$/, ' ').trimStart();
+  };
+
+  recog.onerror = function(e) {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      toast('Microphone permission denied. Allow it in browser settings.', 'err');
+    } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+      toast('Voice error: ' + e.error, 'err');
+    }
+  };
+
+  recog.onend = function() {
+    btn.classList.remove('listening');
+    var lbl = btn.querySelector('.mic-label');
+    if (lbl) lbl.textContent = 'Voice';
+    btn._recog = null;
+    ta.value = ta.value.replace(/\s+$/, '');
+  };
+
+  try {
+    recog.start();
+    btn._recog = recog;
+    btn.classList.add('listening');
+    var lbl = btn.querySelector('.mic-label');
+    if (lbl) lbl.textContent = 'Stop';
+    ta.focus();
+  } catch(e) {
+    toast('Could not start voice input: ' + e.message, 'err');
+  }
 }
 
 // Calls Gemini with two layers of resilience:

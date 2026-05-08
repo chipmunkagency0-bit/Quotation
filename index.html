@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -234,15 +235,15 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
 <nav>
   <span class="logo">ME<span>QUOTE</span></span>
   <div class="ntabs">
-    <button class="nt active" data-page="quotation" onclick="goPage('quotation')">📋 Quotation</button>
-    <button class="nt" data-page="history" onclick="goPage('history')">🕓 History</button>
-    <button class="nt admin-only" data-page="analytics" onclick="goPage('analytics')">📊 Analytics</button>
-    <button class="nt admin-only" data-page="database" onclick="goPage('database')">🗄 Database</button>
+    <button class="nt active" data-page="quotation" onclick="goPage('quotation')">Quotation</button>
+    <button class="nt" data-page="history" onclick="goPage('history')">History</button>
+    <button class="nt admin-only" data-page="analytics" onclick="goPage('analytics')">Analytics</button>
+    <button class="nt admin-only" data-page="database" onclick="goPage('database')">Database</button>
   </div>
   <div class="nav-right">
     <span class="sync-dot" id="sync-dot" title="Sheet sync status"></span>
     <span id="sync-label" style="font-size:10px;color:var(--mu)">offline</span>
-    <button class="admin-chip" id="settings-btn" onclick="openModal('modal-settings')" style="display:none" title="Settings">⚙</button>
+    <button class="admin-chip" id="settings-btn" onclick="openModal('modal-settings')" title="Activate System">Settings</button>
     <button class="admin-chip" id="admin-chip" onclick="toggleAdminPanel()">Admin</button>
   </div>
 </nav>
@@ -271,25 +272,25 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
 <!-- SETUP GUIDE MODAL -->
 <div class="modal" id="modal-setup">
   <div class="mbox wide">
-    <div class="mtitle">📋 Setup Guide — Connect to Google Sheets</div>
-    <div class="step"><strong>Step 1 — Create a Google Sheet</strong><br>
-      Go to <a href="https://sheets.google.com" target="_blank">sheets.google.com</a> → New Spreadsheet. Name it anything.</div>
-    <div class="step"><strong>Step 2 — Add the Apps Script</strong><br>
-      In your sheet: <strong>Extensions → Apps Script</strong> → delete all existing code → paste the full contents of <code>Code.gs</code> → Save (Ctrl+S).</div>
-    <div class="step"><strong>Step 3 — Deploy as Web App</strong><br>
-      Click <strong>Deploy → New Deployment → Select type: Web App</strong><br>
+    <div class="mtitle">Setup Guide - Connect to Google Sheets</div>
+    <div class="step"><strong>Step 1 - Create a Google Sheet</strong><br>
+      Go to <a href="https://sheets.google.com" target="_blank">sheets.google.com</a> -> New Spreadsheet. Name it anything.</div>
+    <div class="step"><strong>Step 2 - Add the Apps Script</strong><br>
+      In your sheet: <strong>Extensions -> Apps Script</strong> -> delete all existing code -> paste the full contents of <code>Code.gs</code> -> Save (Ctrl+S).</div>
+    <div class="step"><strong>Step 3 - Deploy as Web App</strong><br>
+      Click <strong>Deploy -> New Deployment -> Select type: Web App</strong><br>
       Execute as: <strong>Me</strong> | Who has access: <strong>Anyone</strong><br>
-      Click <strong>Deploy</strong> → click through the Google warning (click Advanced → Go to app) → <strong>Allow</strong><br>
-      Copy the Web App URL (looks like <code>https://script.google.com/macros/s/ABC…/exec</code>)</div>
-    <div class="step"><strong>Step 4 — Initialize Sheets</strong><br>
+      Click <strong>Deploy</strong> -> click through the Google warning (click Advanced -> Go to app) -> <strong>Allow</strong><br>
+      Copy the Web App URL (looks like <code>https://script.google.com/macros/s/ABC.../exec</code>)</div>
+    <div class="step"><strong>Step 4 - Initialize Sheets</strong><br>
       Paste your URL in the Config section below and click <strong>Connect</strong>. It will auto-create all tabs (Users, Items, Quotations, Folders, Config).</div>
-    <div class="step"><strong>Step 5 — Set your password</strong><br>
-      Open your Google Sheet → <strong>Users</strong> tab → edit the password column. Changes take effect immediately. Default: <code>admin / admin123</code></div>
-    <div class="step"><strong>Step 6 — Gemini API Key (for PDF import)</strong><br>
-      Go to <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a> → Get API Key → Create API Key. Paste it in Config below or in the Sheet's Config tab.</div>
-    <div class="step"><strong>Step 7 — Host on GitHub Pages (free)</strong><br>
-      <a href="https://github.com" target="_blank">github.com</a> → New public repo → upload this file as <code>index.html</code><br>
-      Settings → Pages → Source: main branch → Save.<br>
+    <div class="step"><strong>Step 5 - Set your password</strong><br>
+      Open your Google Sheet -> <strong>Users</strong> tab -> edit the password column. Changes take effect immediately. Default: <code>admin / admin123</code></div>
+    <div class="step"><strong>Step 6 - Device system key</strong><br>
+      On each device, open the gear, enter its system key, and save. Nothing is written to the Sheet.</div>
+    <div class="step"><strong>Step 7 - Host on GitHub Pages (free)</strong><br>
+      <a href="https://github.com" target="_blank">github.com</a> -> New public repo -> upload this file as <code>index.html</code><br>
+      Settings -> Pages -> Source: main branch -> Save.<br>
       Your live URL: <code>https://yourusername.github.io/repo-name</code></div>
     <div class="arow"><button class="btn btn-p" onclick="closeModal('modal-setup')">Got it</button></div>
   </div>
@@ -298,7 +299,7 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
 <!-- QUOTATION PAGE -->
 <div id="page-quotation" class="page active">
   <div class="ptitle">Quotation Builder</div>
-  <p class="psub">Type item name or code — autocomplete fills code and price.</p>
+  <p class="psub">Type item name or code - autocomplete fills code and price.</p>
 
   <div class="card">
     <div class="ctitle">Client Details</div>
@@ -311,24 +312,24 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
   </div>
 
   <div class="card np" id="upload-from-file-card">
-    <div class="ctitle">📷 Create From Handwritten / Photo</div>
+    <div class="ctitle">Create From Handwritten / Photo</div>
     <p style="font-size:11px;color:var(--mu);margin-bottom:12px">
-      Take a photo of a handwritten quotation request — Gemini AI reads the items, quantities and prices and fills the rows automatically.
+      Take a photo of a handwritten quotation request - Gemini AI reads the items, quantities and prices and fills the rows automatically.
     </p>
     <div class="arow" style="margin-top:0;flex-wrap:wrap">
-      <button class="btn btn-p btn-sm" onclick="document.getElementById('qu-cam').click()">📷 Take Photo</button>
-      <button class="btn btn-g btn-sm" onclick="document.getElementById('qu-gal').click()">🖼 Gallery / Image</button>
-      <button class="btn btn-g btn-sm" onclick="document.getElementById('qu-xls').click()">📋 Invoice / Excel</button>
+      <button class="btn btn-p btn-sm" onclick="document.getElementById('qu-cam').click()">Take Photo</button>
+      <button class="btn btn-g btn-sm" onclick="document.getElementById('qu-gal').click()">Gallery / Image</button>
+      <button class="btn btn-g btn-sm" onclick="document.getElementById('qu-xls').click()">Invoice / Excel / PDF</button>
       <span class="tag" id="qu-count" style="font-size:11px"></span>
     </div>
     <input type="file" id="qu-cam" accept="image/*" capture="environment" style="display:none" onchange="handleQuotePhoto(event)">
     <input type="file" id="qu-gal" accept="image/*,.pdf" style="display:none" onchange="handleQuotePhoto(event)">
-    <input type="file" id="qu-xls" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleQuoteExcel(event)">
+    <input type="file" id="qu-xls" accept=".xlsx,.xls,.csv,.pdf" style="display:none" onchange="handleQuoteExcel(event)">
     <!-- Status box -->
     <div id="qu-status-box" style="display:none;margin-top:14px;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:13px">
       <div style="display:flex;align-items:center;gap:9px;margin-bottom:6px">
-        <span id="qu-icon" style="font-size:18px">🤖</span>
-        <strong id="qu-title" style="font-size:13px">Processing…</strong>
+        <span id="qu-icon" style="font-size:18px">-</span>
+        <strong id="qu-title" style="font-size:13px">Processing...</strong>
       </div>
       <div id="qu-msg" style="font-size:11px;color:var(--mu);line-height:1.7"></div>
       <div class="pb show" style="margin-top:9px"><div class="pf" id="qu-pf" style="width:0%;transition:width .8s ease"></div></div>
@@ -346,8 +347,8 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
         </table>
       </div>
       <div class="arow" style="margin-top:10px">
-        <button class="btn btn-p btn-sm" onclick="insertQuoteRows()">✓ Add to Quotation</button>
-        <button class="btn btn-g btn-sm" onclick="cancelQuotePhoto()">✕ Cancel</button>
+        <button class="btn btn-p btn-sm" onclick="insertQuoteRows()">OK Add to Quotation</button>
+        <button class="btn btn-g btn-sm" onclick="cancelQuotePhoto()">x Cancel</button>
       </div>
     </div>
   </div>
@@ -361,27 +362,27 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
           <th class="cn">Item Name</th>
           <th class="cc">Code</th>
           <th class="cq">Qty</th>
-          <th class="cp">MRP (₹)</th>
+          <th class="cp">MRP (Rs.)</th>
           <th class="cd">Disc %</th>
-          <th class="cr">Rate (₹)</th>
+          <th class="cr">Rate (Rs.)</th>
           <th class="ct">Tax %</th>
-          <th class="ca">Amount (₹)</th>
+          <th class="ca">Amount (Rs.)</th>
           <th class="cX"></th>
         </tr></thead>
         <tbody id="qbody"></tbody>
       </table>
     </div>
     <div class="tgrid">
-      <div class="tbox hi"><div class="tl">Total Before Tax</div><div class="tv" id="tot-b">₹0</div></div>
-      <div class="tbox ta"><div class="tl">Tax (GST 18%)</div><div class="tv" id="tot-t">₹0</div></div>
-      <div class="tbox tf"><div class="tl">Total After Tax</div><div class="tv" id="tot-a">₹0</div></div>
+      <div class="tbox hi"><div class="tl">Total Before Tax</div><div class="tv" id="tot-b">Rs. 0</div></div>
+      <div class="tbox ta"><div class="tl">Tax (GST 18%)</div><div class="tv" id="tot-t">Rs. 0</div></div>
+      <div class="tbox tf"><div class="tl">Total After Tax</div><div class="tv" id="tot-a">Rs. 0</div></div>
     </div>
   </div>
 
   <div class="arow np">
-    <button class="btn btn-p" onclick="saveAndPrint()">⬇ Save &amp; Export PDF</button>
-    <button class="btn btn-g" onclick="saveQ()">💾 Save</button>
-    <button class="btn btn-g btn-sm" onclick="clearAll()">✕ Clear</button>
+    <button class="btn btn-p" onclick="saveAndPrint()">Save &amp; Export PDF</button>
+    <button class="btn btn-g" onclick="saveQ()">Save</button>
+    <button class="btn btn-g btn-sm" onclick="clearAll()">Clear</button>
   </div>
 </div>
 
@@ -391,8 +392,8 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
   <p class="psub">All saved quotations. Load any back into the builder.</p>
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:13px;flex-wrap:wrap;gap:8px">
-      <input class="si" id="h-search" type="text" placeholder="Search client, quotation no…" oninput="renderHist()" style="max-width:280px">
-      <button class="btn btn-d btn-sm" onclick="clearAllHist()">🗑 Clear All</button>
+      <input class="si" id="h-search" type="text" placeholder="Search client, quotation no..." oninput="renderHist()" style="max-width:280px">
+      <button class="btn btn-d btn-sm" onclick="clearAllHist()">Clear All</button>
     </div>
     <div id="hlist"></div>
   </div>
@@ -406,7 +407,7 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
   <div class="charts">
     <div class="card"><div class="ctitle">Top Brands by Demand</div><div id="ch-br"></div></div>
     <div class="card"><div class="ctitle">Top Products by Qty</div><div id="ch-pr"></div></div>
-    <div class="card"><div class="ctitle">Revenue by Brand (₹)</div><div id="ch-rv"></div></div>
+    <div class="card"><div class="ctitle">Revenue by Brand (Rs.)</div><div id="ch-rv"></div></div>
     <div class="card"><div class="ctitle">Top Clients by Demand</div><div id="ch-cl"></div></div>
     <div class="card" style="grid-column:1/-1"><div class="ctitle">Quotations Over Time</div><div id="ch-tl"></div></div>
   </div>
@@ -432,16 +433,16 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
       ondragleave="this.classList.remove('drag')"
       ondrop="handleDrop(event)"
       onclick="document.getElementById('db-file').click()">
-      <div class="di">📊</div>
+      <div class="di"></div>
       <div class="dt">Drop Excel, CSV or PDF here</div>
-      <div class="ds">.xlsx .xls .csv — and .pdf (Gemini AI extracts multi-column, multi-brand tables)</div>
+      <div class="ds">.xlsx .xls .csv - and .pdf (Gemini AI extracts multi-column, multi-brand tables)</div>
     </div>
     <input type="file" id="db-file" accept=".xlsx,.xls,.csv,.pdf" style="display:none" onchange="handleDBFile(event)">
     <div class="pb" id="xpb"><div class="pf" id="xpf" style="width:0%"></div></div>
     <div class="pdfs" id="pdfs">
       <div style="display:flex;align-items:center;gap:9px">
-        <span id="pdf-icon" style="font-size:18px">🤖</span>
-        <strong id="pdf-title" style="font-size:13px">Processing…</strong>
+        <span id="pdf-icon" style="font-size:18px">-</span>
+        <strong id="pdf-title" style="font-size:13px">Processing...</strong>
       </div>
       <div class="pdfsi" id="pdf-msg"></div>
       <div class="pb show" style="margin-top:9px"><div class="pf" id="pdf-pf" style="width:0%;transition:width .8s ease"></div></div>
@@ -458,7 +459,7 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
         </table>
       </div>
       <div class="arow">
-        <button class="btn btn-p btn-sm" onclick="importParsed()">✓ Import to DB</button>
+        <button class="btn btn-p btn-sm" onclick="importParsed()">OK Import to DB</button>
         <button class="btn btn-g btn-sm" onclick="cancelImport()">Cancel</button>
       </div>
     </div>
@@ -468,17 +469,17 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
   <div class="card">
     <div class="ctitle">All Items <span class="tag" id="db-cnt"></span></div>
     <div class="dbc">
-      <input class="si" id="db-q" type="text" placeholder="Search name, code, brand…" oninput="renderDB()">
+      <input class="si" id="db-q" type="text" placeholder="Search name, code, brand..." oninput="renderDB()">
       <select class="fs" id="db-brand" onchange="renderDB()"><option value="">All Brands</option></select>
       <button class="btn btn-g btn-sm" onclick="addItem()">+ Add Item</button>
-      <button class="btn btn-g btn-sm" onclick="syncItemsToSheet()">↑ Sync to Sheet</button>
-      <button class="btn btn-d btn-sm" onclick="clearAllDB()">🗑 Clear All</button>
+      <button class="btn btn-g btn-sm" onclick="syncItemsToSheet()">Sync to Sheet</button>
+      <button class="btn btn-d btn-sm" onclick="clearAllDB()">Clear All</button>
     </div>
     <div class="dbw">
       <table class="dbt">
         <thead><tr>
           <th style="width:34px">#</th><th>ITEM NAME</th>
-          <th style="width:110px">CODE</th><th style="width:90px">PRICE (₹)</th>
+          <th style="width:110px">CODE</th><th style="width:90px">PRICE (Rs.)</th>
           <th style="width:120px">BRAND</th><th style="width:100px">FOLDER</th>
           <th style="width:28px"></th>
         </tr></thead>
@@ -488,23 +489,21 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
   </div>
 </div>
 
-<!-- Settings Modal (Admin only) -->
+<!-- Settings Modal -->
 <div class="modal" id="modal-settings">
   <div class="mbox">
-    <div class="mtitle">⚙ Admin Settings</div>
+    <div class="mtitle">Device Settings</div>
     <div class="fl" style="margin-bottom:10px">
-      <label>Gemini API Key</label>
-      <input id="set-gem" type="password" placeholder="AIza… (paste your new key)"
-        autocomplete="off" style="font-family:monospace;letter-spacing:1px">
+      <label>System Configuration</label>
+      <input id="set-gem" type="password" placeholder="1+2"
+        autocomplete="off" style="font-size:13px;width:260px">
     </div>
     <div style="font-size:10px;color:var(--mu);line-height:1.6;margin-bottom:12px">
-      Get a free key at <a href="https://aistudio.google.com" target="_blank" style="color:var(--ac2)">aistudio.google.com</a>
-      → Get API Key → Create API Key.<br>
-      Saved encrypted to Google Sheets — syncs to all devices automatically.
+      Enter this device's system key here. It stays only on this device.
     </div>
     <div id="set-status" style="font-size:11px;margin-bottom:10px;display:none;padding:6px 10px;border-radius:5px;background:var(--sf2)"></div>
     <div class="arow">
-      <button class="btn btn-p btn-sm" onclick="saveGeminiKey()">💾 Save &amp; Sync</button>
+      <button class="btn btn-p btn-sm" onclick="saveGeminiKey()">Save Device</button>
       <button class="btn btn-g btn-sm" onclick="closeModal('modal-settings')">Cancel</button>
     </div>
   </div>
@@ -514,10 +513,10 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
 
 <script>
 // ================================================================
-// CONFIG — paste your values here OR use the Config card in the app
+// CONFIG
 // ================================================================
 var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx16uLQhIPphsI7WpCM6hxbVTxYUNlSJPxVHxxnJzPcx1z56agB7AEf_Un7tVjZ2MNa/exec';
-var GEMINI_KEY = ''; // Set by admin via Settings — stored encrypted in Sheet
+var OCR_MODEL = 'gemini-2.5-pro';
 
 // ================================================================
 // SEED DATA (built-in items, used if no Sheet connected)
@@ -553,7 +552,7 @@ function lsGet(k, def) {
 function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
 
 function getScriptUrl() { return SCRIPT_URL; }
-function getGemKey()    { return window._gemKey || lsGet('meq_gk_cache','') || GEMINI_KEY || ''; }
+function getGemKey()    { return window._gemKey || lsGet('meq_gk_cache','') || ''; }
 
 function markDirty() { dirty = true; }
 
@@ -567,7 +566,7 @@ function setSyncStatus(state, label) {
   if (lbl) lbl.textContent = label || '';
 }
 
-// JSONP-based API call — bypasses CORS completely
+// JSONP-based API call - bypasses CORS completely
 // Apps Script returns JSON wrapped in a callback function
 function api(action, body) {
   return new Promise(function(resolve) {
@@ -627,19 +626,19 @@ async function connectSheets() {
   dirty = false;
 
   var el = document.getElementById('conn-status');
-  if (el) el.textContent = 'Connecting…';
+  if (el) el.textContent = 'Connecting...';
   setSyncStatus('spin', 'connecting');
 
   var r = await api('setup');
   if (!r || !r.ok) {
     setSyncStatus('err', 'error');
-    if (el) el.textContent = '✕ Could not connect. Check the URL.';
+    if (el) el.textContent = 'x Could not connect. Check the URL.';
     toast('Connection failed. Check URL.', 'err');
     return;
   }
 
   setSyncStatus('ok', 'connected');
-  if (el) { el.textContent = '✓ Connected!'; el.style.color = 'var(--ok)'; }
+  if (el) { el.textContent = 'OK Connected!'; el.style.color = 'var(--ok)'; }
   toast('Connected to Google Sheets!', 'ok');
 
   // Full sync
@@ -675,9 +674,6 @@ async function fullSync() {
       // Save gemini key
       // Config loaded (keys hardwired, no UI needed)
     }
-
-    // Load Gemini key from Sheet (so all devices work after admin sets it once)
-    await loadGemKey();
 
     setSyncStatus('ok', 'synced');
     renderFolders(); renderDB();
@@ -728,11 +724,11 @@ async function pushItems() {
 
 async function syncItemsToSheet() {
   setSyncStatus('spin', 'pushing');
-  toast('Syncing ' + DB.length + ' items to Sheet…');
+  toast('Syncing ' + DB.length + ' items to Sheet...');
   try {
     var ok = await pushItems();
     setSyncStatus(ok ? 'ok' : 'err', ok ? 'synced' : 'error');
-    toast(ok ? '✓ All ' + DB.length + ' items synced to Sheet' : 'Push failed — check connection', ok ? 'ok' : 'err');
+    toast(ok ? 'OK All ' + DB.length + ' items synced to Sheet' : 'Push failed - check connection', ok ? 'ok' : 'err');
   } catch(e) {
     setSyncStatus('err', 'error');
     toast('Push error: ' + e.message, 'err');
@@ -771,7 +767,7 @@ function init() {
     isAdmin = true;
     document.body.classList.add('is-admin');
     var chip = document.getElementById('admin-chip');
-    if (chip) { chip.textContent = 'Admin ✓'; chip.classList.add('on'); }
+    if (chip) { chip.textContent = 'Admin OK'; chip.classList.add('on'); }
     var sbtn = document.getElementById('settings-btn');
     if (sbtn) sbtn.style.display = 'inline-block';
   }
@@ -839,21 +835,11 @@ async function doLogin() {
   var btn = document.querySelector('#modal-login .btn-p');
   err.classList.remove('show');
 
-  if (btn) { btn.textContent = 'Checking…'; btn.disabled = true; }
-  var users = await getUsers();
+  if (btn) { btn.textContent = 'Checking...'; btn.disabled = true; }
+  var login = await checkLogin(id, pw);
   if (btn) { btn.textContent = 'Login'; btn.disabled = false; }
 
-  // Debug: log what users came back (remove after testing)
-  console.log('Users from Sheet:', JSON.stringify(users.map(function(u){ return {id:u.id, pwLen: String(u.password||'').length}; })));
-
-  var match = users.find(function(u) {
-    var uId  = String(u.id       || '').trim().toLowerCase();
-    var uPw  = String(u.password || '').trim();
-    var inId = String(id         || '').trim().toLowerCase();
-    var inPw = String(pw         || '').trim();
-    return uId === inId && uPw === inPw;
-  });
-  if (!match) {
+  if (!login || !login.ok) {
     var hasSheet = !!getScriptUrl();
     err.textContent = hasSheet
       ? 'Invalid ID or password. Check the Users tab in your Google Sheet (columns: id | password | role).'
@@ -866,36 +852,73 @@ async function doLogin() {
   sessionStorage.setItem('meq_admin', '1');
   document.body.classList.add('is-admin');
   var chip = document.getElementById('admin-chip');
-  if (chip) { chip.textContent = 'Admin ✓'; chip.classList.add('on'); }
-  var sbtn = document.getElementById('settings-btn');
-  if (sbtn) sbtn.style.display = 'inline-block';
+  if (chip) { chip.textContent = 'Admin OK'; chip.classList.add('on'); }
   document.getElementById('li-pw').value = '';
   closeModal('modal-login');
   toast('Admin logged in', 'ok');
 }
 
+async function checkLogin(id, pw) {
+  var r = await apiNoCache('login', { id: id, password: pw });
+  if (r && r.ok && r.user) return r;
+
+  var users = await getUsers();
+  var match = users.find(function(u) {
+    var uId  = String(u.id       || '').trim().toLowerCase();
+    var uPw  = String(u.password || '').trim();
+    var inId = String(id         || '').trim().toLowerCase();
+    var inPw = String(pw         || '').trim();
+    return uId === inId && uPw === inPw;
+  });
+  return match ? { ok: true, user: { id: match.id, role: match.role || 'admin' } } : { ok: false };
+}
+
 async function getUsers() {
-  var url = getScriptUrl();
-
-  // 1. If Sheet URL is set, ALWAYS fetch fresh from Sheet (catches new users)
-  if (url) {
-    var r = await api('users');
-    if (r && r.ok && r.users && r.users.length) {
-      console.log('Sheet returned', r.users.length, 'users');
-      // Cache locally so offline login still works
-      lsSet('meq_users_cache', r.users);
-      return r.users;
-    } else {
-      console.warn('Sheet users call failed or returned empty:', JSON.stringify(r));
-    }
+  // ALWAYS try Sheet first - add cache-busting timestamp to avoid JSONP caching
+  var r = await apiNoCache('users');
+  if (r && r.ok && Array.isArray(r.users) && r.users.length) {
+    lsSet('meq_users_cache', r.users);
+    console.log('Users from Sheet:', r.users.map(function(u){ return u.id; }));
+    return r.users;
   }
-
-  // 2. Try locally cached users (set when Sheet was last reachable)
+  // Fallback to local cache
   var cached = lsGet('meq_users_cache', null);
-  if (cached && cached.length) return cached;
-
-  // 3. Last resort: built-in default
+  if (cached && cached.length) {
+    console.log('Using cached users:', cached.map(function(u){ return u.id; }));
+    return cached;
+  }
+  // Last resort
+  console.warn('Using hardcoded fallback user');
   return [{ id: 'admin', password: 'admin123', role: 'admin' }];
+}
+
+// Like api() but adds timestamp to prevent JSONP response caching
+function apiNoCache(action, body) {
+  return new Promise(function(resolve) {
+    var url = getScriptUrl();
+    if (!url) { resolve(null); return; }
+    var cbName = '_cb' + Date.now() + Math.floor(Math.random() * 99999);
+    var timeout = setTimeout(function() {
+      cleanup(); console.warn('apiNoCache timeout:', action); resolve(null);
+    }, 15000);
+    function cleanup() {
+      clearTimeout(timeout);
+      try { delete window[cbName]; } catch(e) {}
+      var s = document.getElementById(cbName);
+      if (s && s.parentNode) s.parentNode.removeChild(s);
+    }
+    window[cbName] = function(data) { cleanup(); resolve(data); };
+    var script = document.createElement('script');
+    script.id  = cbName;
+    var params = { action: action, _t: Date.now(), callback: cbName };
+    if (body) Object.keys(body).forEach(function(k) { params[k] = body[k]; });
+    var qs = Object.keys(params).map(function(k) {
+      return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+    }).join('&');
+    script.src = url + '?' + qs;
+    script.onerror = function() { cleanup(); resolve(null); };
+    document.head.appendChild(script);
+  });
 }
 
 function logoutAdmin() {
@@ -904,8 +927,6 @@ function logoutAdmin() {
   document.body.classList.remove('is-admin');
   var chip = document.getElementById('admin-chip');
   if (chip) { chip.textContent = 'Admin'; chip.classList.remove('on'); }
-  var sbtn = document.getElementById('settings-btn');
-  if (sbtn) sbtn.style.display = 'none';
   // If on admin-only page, go to quotation
   var active = document.querySelector('.page.active');
   if (active && (active.id === 'page-analytics' || active.id === 'page-database')) {
@@ -925,7 +946,7 @@ function addRow(data, isGhost) {
   tr.dataset.id = id;
   if (isGhost) { tr.classList.add('ghost'); tr.onclick = function() { activateGhost(id); }; }
 
-  var ph = isGhost ? 'Click to add row…' : 'Type name or code…';
+  var ph = isGhost ? 'Click to add row...' : 'Type name or code...';
   tr.innerHTML =
     '<td class="csn">' + (isGhost ? '+' : sn) + '</td>' +
     '<td class="cn"><div class="acw">' +
@@ -941,7 +962,7 @@ function addRow(data, isGhost) {
     '<td class="cr"><input type="text" class="ri" readonly placeholder="0.00"></td>' +
     '<td class="ct"><input type="number" class="ti" value="18" min="0" max="100" oninput="calc(' + id + ')"></td>' +
     '<td class="ca"><input type="text" class="ami" readonly placeholder="0.00"></td>' +
-    '<td class="cX">' + (isGhost ? '' : '<button class="xbtn" onclick="delRow(' + id + ')">✕</button>') + '</td>';
+    '<td class="cX">' + (isGhost ? '' : '<button class="xbtn" onclick="delRow(' + id + ')">x</button>') + '</td>';
   tbody.appendChild(tr);
   calc(id);
   return tr;
@@ -959,9 +980,9 @@ function activateGhost(id) {
   tr.onclick = null;
   var inp = tr.querySelector('.ai');
   inp.removeAttribute('readonly');
-  inp.placeholder = 'Type name or code…';
+  inp.placeholder = 'Type name or code...';
   var del = tr.querySelector('.cX');
-  del.innerHTML = '<button class="xbtn" onclick="delRow(' + id + ')">✕</button>';
+  del.innerHTML = '<button class="xbtn" onclick="delRow(' + id + ')">x</button>';
   updateSNs();
   inp.focus();
   ensureGhost();
@@ -1030,9 +1051,9 @@ function calcTotals() {
     var sub  = qty * rate;
     b += sub; t += sub * tax / 100; a += sub * (1 + tax / 100);
   });
-  document.getElementById('tot-b').textContent = '₹' + fmt(b);
-  document.getElementById('tot-t').textContent = '₹' + fmt(t);
-  document.getElementById('tot-a').textContent = '₹' + fmt(a);
+  document.getElementById('tot-b').textContent = 'Rs. ' + fmt(b);
+  document.getElementById('tot-t').textContent = 'Rs. ' + fmt(t);
+  document.getElementById('tot-a').textContent = 'Rs. ' + fmt(a);
 }
 
 function fmt(n) { return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -1046,7 +1067,7 @@ function ain(e, id) {
   acHL = -1;
   if (!q) { dd.style.display = 'none'; return; }
 
-  // Exact code match → auto-fill
+  // Exact code match -> auto-fill
   if (/^\d{4,}/.test(raw) || /^[A-Z]{2,}\d{3,}/i.test(raw)) {
     var exact = DB.find(function(d) { return d.code && d.code.toLowerCase() === q; });
     if (exact) { dd.style.display = 'none'; fillRow(id, exact); return; }
@@ -1061,10 +1082,10 @@ function ain(e, id) {
   if (!results.length) { dd.style.display = 'none'; return; }
 
   dd.innerHTML = results.map(function(r, i) {
-    var fol = (r.folder && r.folder !== 'all') ? '<span class="acfol">📁 ' + X(r.folder) + '</span>' : '';
+    var fol = (r.folder && r.folder !== 'all') ? '<span class="acfol"> ' + X(r.folder) + '</span>' : '';
     return '<div class="aci" onmousedown="selAC(event,' + id + ',' + i + ')" onmouseenter="hlAC(' + i + ',' + id + ')">' +
-      '<span class="acn">' + (r.brand ? X(r.brand) + ' · ' : '') + X(r.name) + '</span>' +
-      '<span class="acs">' + (r.code ? 'Code: ' + X(r.code) : '') + (r.price ? ' · ₹' + r.price : '') + fol + '</span></div>';
+      '<span class="acn">' + (r.brand ? X(r.brand) + '  -  ' : '') + X(r.name) + '</span>' +
+      '<span class="acs">' + (r.code ? 'Code: ' + X(r.code) : '') + (r.price ? '  -  Rs. ' + r.price : '') + fol + '</span></div>';
   }).join('');
   dd._r = results;
   dd.style.display = 'block';
@@ -1155,9 +1176,9 @@ function printClean() {
   var qno     = document.getElementById('m-qno').value     || '';
   var date    = document.getElementById('m-date').value    || '';
   var site    = document.getElementById('m-site').value    || '';
-  var totB    = document.getElementById('tot-b').textContent || '₹0';
-  var totT    = document.getElementById('tot-t').textContent || '₹0';
-  var totA    = document.getElementById('tot-a').textContent || '₹0';
+  var totB    = document.getElementById('tot-b').textContent || 'Rs. 0';
+  var totT    = document.getElementById('tot-t').textContent || 'Rs. 0';
+  var totA    = document.getElementById('tot-a').textContent || 'Rs. 0';
 
   // Build table rows HTML
   var rowsHTML = '';
@@ -1216,11 +1237,11 @@ function printClean() {
     '<th>ITEM NAME</th>' +
     '<th style="width:90px">CODE</th>' +
     '<th style="width:48px">QTY</th>' +
-    '<th style="width:72px">MRP (₹)</th>' +
+    '<th style="width:72px">MRP (Rs.)</th>' +
     '<th style="width:52px">DISC %</th>' +
-    '<th style="width:72px">RATE (₹)</th>' +
+    '<th style="width:72px">RATE (Rs.)</th>' +
     '<th style="width:44px">TAX %</th>' +
-    '<th style="width:85px">AMOUNT (₹)</th>' +
+    '<th style="width:85px">AMOUNT (Rs.)</th>' +
     '</tr></thead><tbody>' + rowsHTML + '</tbody></table>' +
     '<div class="totals">' +
     '<div class="tbox"><div class="lbl">Total Before Tax</div><div class="val">' + totB + '</div></div>' +
@@ -1262,10 +1283,10 @@ function renderHist() {
       if (b && !bset[b]) { bset[b] = 1; brands.push(b); }
     });
     return '<div class="hcard">' +
-      '<div style="font-size:22px">📄</div>' +
+      '<div style="font-size:22px"></div>' +
       '<div class="hm">' +
-        '<div class="ht">' + X(h.client || 'Unknown') + (h.qno ? ' — ' + X(h.qno) : '') + '</div>' +
-        '<div class="hs">' + date + (h.site ? ' · ' + X(h.site) : '') + '</div>' +
+        '<div class="ht">' + X(h.client || 'Unknown') + (h.qno ? ' - ' + X(h.qno) : '') + '</div>' +
+        '<div class="hs">' + date + (h.site ? '  -  ' + X(h.site) : '') + '</div>' +
         '<div class="hbs">' +
           '<span class="hb y">' + cnt + ' item' + (cnt !== 1 ? 's' : '') + '</span>' +
           (brands.length ? '<span class="hb b">' + X(brands.slice(0, 3).join(', ')) + '</span>' : '') +
@@ -1273,8 +1294,8 @@ function renderHist() {
         '</div>' +
       '</div>' +
       '<div class="hax">' +
-        '<button class="btn btn-g btn-sm" onclick="loadQ(' + h.id + ')">↩ Load</button>' +
-        '<button class="btn btn-d btn-sm" onclick="delHist(' + h.id + ')">✕</button>' +
+        '<button class="btn btn-g btn-sm" onclick="loadQ(' + h.id + ')">Load Load</button>' +
+        '<button class="btn btn-d btn-sm" onclick="delHist(' + h.id + ')">x</button>' +
       '</div>' +
     '</div>';
   }).join('');
@@ -1357,9 +1378,9 @@ function renderAnalytics() {
   var tb = Object.entries(bQty).sort(function(a, b) { return b[1] - a[1]; })[0];
   kEl.innerHTML =
     kpi('Quotations',   hist.length,              'All time') +
-    kpi('Revenue',      '₹' + (totR/1000).toFixed(1) + 'K', 'After tax') +
-    kpi('Top Brand',    tb ? tb[0] : '—',         tb ? tb[1] + ' units' : '') +
-    kpi('Top Client',   topClient ? topClient[0] : '—', topClient ? topClient[1] + ' units ordered' : '');
+    kpi('Revenue',      'Rs. ' + (totR/1000).toFixed(1) + 'K', 'After tax') +
+    kpi('Top Brand',    tb ? tb[0] : '-',         tb ? tb[1] + ' units' : '') +
+    kpi('Top Client',   topClient ? topClient[0] : '-', topClient ? topClient[1] + ' units ordered' : '');
 
   function bars(elId, data, color, vf) {
     var el = document.getElementById(elId);
@@ -1373,7 +1394,7 @@ function renderAnalytics() {
   }
   bars('ch-br', Object.entries(bQty).sort(function(a,b){return b[1]-a[1];}).slice(0,8), 'var(--ac)',  function(v){return v+'u';});
   bars('ch-pr', Object.entries(pQty).sort(function(a,b){return b[1]-a[1];}).slice(0,8), 'var(--ac2)', function(v){return v+'u';});
-  bars('ch-rv', Object.entries(bRev).sort(function(a,b){return b[1]-a[1];}).slice(0,8), 'var(--ok)',  function(v){return '₹'+(v>=1000?(v/1000).toFixed(1)+'K':v.toFixed(0));});
+  bars('ch-rv', Object.entries(bRev).sort(function(a,b){return b[1]-a[1];}).slice(0,8), 'var(--ok)',  function(v){return 'Rs. '+(v>=1000?(v/1000).toFixed(1)+'K':v.toFixed(0));});
   bars('ch-cl', Object.entries(cQty).sort(function(a,b){return b[1]-a[1];}).slice(0,8), '#a78bfa',   function(v){return v+'u';});
 
   var wk = {};
@@ -1416,17 +1437,17 @@ function renderFolders() {
     d.onclick = function() { curFolder = folderName; renderFolders(); renderDB(); };
     return d;
   }
-  row.appendChild(mk('All Items', '📂', 'all', DB.length));
+  row.appendChild(mk('All Items', '', 'all', DB.length));
   folders.filter(function(f) { return f !== 'all'; }).forEach(function(f) {
     var cnt  = DB.filter(function(d) { return d.folder === f; }).length;
-    var card = mk(f, '📁', f, cnt);
+    var card = mk(f, '', f, cnt);
     var editBtn = document.createElement('button');
-    editBtn.textContent = '✏️';
+    editBtn.textContent = '';
     editBtn.title = 'Rename folder';
     editBtn.style.cssText = 'background:none;border:none;cursor:pointer;font-size:10px;padding:0 0 0 3px;opacity:.6';
     editBtn.onclick = function(e) { e.stopPropagation(); renameFolder(f); };
     var delBtn = document.createElement('button');
-    delBtn.textContent = '✕';
+    delBtn.textContent = 'x';
     delBtn.title = 'Delete folder';
     delBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:var(--mu);font-size:10px;padding:0 0 0 2px';
     delBtn.onclick = function(e) { e.stopPropagation(); delFolder(f); };
@@ -1517,7 +1538,7 @@ function renderDB() {
       '<td><input type="number" value="' + (d.price||'') + '" onchange="upd(' + d.id + ',\"price\",parseFloat(this.value)||null)"></td>' +
       '<td><input type="text" value="' + X(d.brand||'') + '" onchange="upd(' + d.id + ',\"brand\",this.value)"></td>' +
       '<td><select onchange="upd(' + d.id + ',\"folder\",this.value)">' + fO + '</select></td>' +
-      '<td><button style="background:none;border:none;cursor:pointer;color:var(--mu);font-size:12px" onclick="delItem(' + d.id + ')">✕</button></td>' +
+      '<td><button style="background:none;border:none;cursor:pointer;color:var(--mu);font-size:12px" onclick="delItem(' + d.id + ')">x</button></td>' +
     '</tr>';
   }).join('') + (items.length > 400 ? '<tr><td colspan="7" style="text-align:center;color:var(--mu);padding:10px">Showing 400 of ' + items.length + '. Use search to narrow.</td></tr>' : '');
 }
@@ -1540,7 +1561,7 @@ function addItem() {
   DB.push({ id: newId, name: 'New Item', code: '', price: null, brand: '', folder: curFolder === 'all' ? 'all' : curFolder });
   lsSet(LS_DB, DB);
   renderDB(); renderFolders();
-  toast('Item added — edit inline');
+  toast('Item added - edit inline');
 }
 
 // ================================================================
@@ -1565,12 +1586,12 @@ function handleDBFile2(file) {
 
 
 // ================================================================
-// DATABASE UPLOAD — Excel / CSV
+// DATABASE UPLOAD - Excel / CSV
 // ================================================================
 function parseDBExcel(file) {
   var pb = document.getElementById('xpb'), pf = document.getElementById('xpf');
   pb.classList.add('show'); pf.style.width = '10%';
-  toast('Reading file…');
+  toast('Reading file...');
 
   var reader = new FileReader();
   reader.onerror = function() { pb.classList.remove('show'); toast('Could not read file', 'err'); };
@@ -1606,14 +1627,11 @@ function parseDBExcel(file) {
 }
 
 // ================================================================
-// DATABASE UPLOAD — PDF via Gemini
+// DATABASE UPLOAD - PDF via Gemini
 // ================================================================
 async function parseDBPDF(file) {
   var key = getGemKey();
-  if (!key) {
-    toast('No Gemini API key — add it in Database → Config', 'err');
-    return;
-  }
+  if (!key) { toast('System not configured', 'err'); return; }
 
   var box = document.getElementById('pdfs');
   function st(icon, title, msg, pct) {
@@ -1625,15 +1643,15 @@ async function parseDBPDF(file) {
   }
 
   try {
-    st('📖', 'Reading PDF…', 'Converting to base64…', 10);
+    st('-', 'Reading PDF...', 'Converting to base64...', 10);
 
     var base64 = await fileToBase64(file);
     var sizeKB  = Math.round(base64.length * 0.75 / 1024);
 
-    st('🧠', 'Gemini Extracting…',
-      'Sending <b>' + X(file.name) + '</b> (' + sizeKB + ' KB) to Gemini 2.5 Flash.<br>' +
-      'Detecting multi-column tables, multi-pole variants, multi-colour refs…<br>' +
-      '<span style="color:var(--ac)">Large catalogues can take 20–40 seconds.</span>', 30);
+    st('', 'Gemini Extracting...',
+      'Sending <b>' + X(file.name) + '</b> (' + sizeKB + ' KB) for extraction.<br>' +
+      'Detecting multi-column tables, multi-pole variants, multi-colour refs...<br>' +
+      '<span style="color:var(--ac)">Large catalogues can take 20-40 seconds.</span>', 30);
 
     var prompt = [
       'You are a data extraction engine for electrical product catalogues, price lists, and invoices.',
@@ -1646,11 +1664,11 @@ async function parseDBPDF(file) {
       'EXTRACTION RULES:',
       '1. CODE PRIORITY: Always prefer the product/part code (e.g. 675513, EZ9F71106) over HSN/SAC codes. Look for columns named "Part No.", "Reference", "Ref", "Code", "Item Code".',
       '2. MULTI-COLUMN PRICE LISTS: If a row has multiple Reference+Price pairs (1P Ref/MRP, 2P Ref/MRP etc), create one item per non-empty pair. Include pole info in the name.',
-      '3. MULTI-COLOUR: Columns like "Ref White, MRP White, Ref Grey, MRP Grey" → one item per colour, append colour to name.',
+      '3. MULTI-COLOUR: Columns like "Ref White, MRP White, Ref Grey, MRP Grey" -> one item per colour, append colour to name.',
       '4. BRAND: Use section headings (MYLINC, MYRIUS, RTR, Easy9, Livia etc) as the brand field. For invoices, extract brand from the item description.',
-      '5. NAMES: Clean up item descriptions — remove LEG, NXG suffix words if they are not part of the actual product name. Fix obvious abbreviations.',
+      '5. NAMES: Clean up item descriptions - remove LEG, NXG suffix words if they are not part of the actual product name. Fix obvious abbreviations.',
       '6. SKIP rows where code/reference is "-", blank, or "N/A". Skip header rows and total rows.',
-      '7. PRICES: Numbers only, no ₹ or Rs symbols. Use null if not available.',
+      '7. PRICES: Numbers only, no Rs.  or Rs symbols. Use null if not available.',
       '8. QUANTITIES: Include qty field if this is an invoice/order, otherwise omit.',
       '',
       'Return ONLY a valid JSON array. No markdown fences, no explanation, no code blocks.',
@@ -1659,7 +1677,7 @@ async function parseDBPDF(file) {
     ].join('\n');
 
     var resp = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + key,
+      'https://generativelanguage.googleapis.com/v1beta/models/' + OCR_MODEL + ':generateContent?key=' + key,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1675,11 +1693,11 @@ async function parseDBPDF(file) {
       }
     );
 
-    st('⚡', 'Parsing response…', 'AI response received, extracting items…', 80);
+    st('', 'Parsing response...', 'AI response received, extracting items...', 80);
 
     if (!resp.ok) {
       var errData = await resp.json();
-      throw new Error((errData.error && errData.error.message) || 'Gemini API error ' + resp.status);
+      throw new Error((errData.error && errData.error.message) || 'System error ' + resp.status);
     }
 
     var data    = await resp.json();
@@ -1700,7 +1718,7 @@ async function parseDBPDF(file) {
     var brandSet = {}, brandList = [];
     parsedItems.forEach(function(p) { if (p.brand && !brandSet[p.brand]) { brandSet[p.brand] = 1; brandList.push(p.brand); } });
 
-    st('✅', 'Done — ' + parsedItems.length + ' items found',
+    st('...', 'Done - ' + parsedItems.length + ' items found',
       'Brands detected: <b>' + X(brandList.slice(0, 6).join(', ')) + '</b><br>Review the preview below then click Import.', 100);
     setTimeout(function() { box.classList.remove('show'); }, 4000);
 
@@ -1708,7 +1726,7 @@ async function parseDBPDF(file) {
     toast('Extracted ' + parsedItems.length + ' items', 'ok');
 
   } catch(err) {
-    st('❌', 'Error', '<span style="color:var(--ac3)">' + X(err.message) + '</span><br>Make sure the PDF has selectable text (not a scanned image). Check your Gemini API key.', 0);
+    st('', 'Error', '<span style="color:var(--ac3)">' + X(err.message) + '</span><br>Make sure the PDF has selectable text (not a scanned image).', 0);
     toast('PDF error: ' + err.message, 'err');
     console.error('PDF parse error:', err);
   }
@@ -1749,7 +1767,7 @@ function smartExtract(rows, sheetName) {
       brand = ne[0];
     }
 
-    // Detect header row → map columns
+    // Detect header row -> map columns
     if (isHeader(row)) {
       nameCol = -1; codeCol = -1; priceCol = -1;
       row.forEach(function(cell, ci) {
@@ -1778,7 +1796,7 @@ function smartExtract(rows, sheetName) {
         brand: brand
       });
     } else {
-      // No header found yet — try to auto-detect CODE | NAME | PRICE pattern
+      // No header found yet - try to auto-detect CODE | NAME | PRICE pattern
       // Pattern 1: col0=code, col1=name, col2=price
       if (isCode(row[0]) && row[1] && isPrice(row[2])) {
         items.push({ name: row[1], code: row[0], price: parseFloat(row[2]), brand: brand });
@@ -1811,16 +1829,16 @@ function showPreview() {
   body.innerHTML = parsedItems.slice(0, 150).map(function(d) {
     return '<tr>' +
       '<td style="padding:5px 9px">' + X(d.name) + '</td>' +
-      '<td style="padding:5px 9px;color:var(--ac2)">' + X(d.code || '—') + '</td>' +
-      '<td style="padding:5px 9px">' + (d.price != null ? '₹' + d.price : '—') + '</td>' +
+      '<td style="padding:5px 9px;color:var(--ac2)">' + X(d.code || '-') + '</td>' +
+      '<td style="padding:5px 9px">' + (d.price != null ? 'Rs. ' + d.price : '-') + '</td>' +
       '<td style="padding:5px 9px"><span class="bdg">' + X(d.brand || '') + '</span></td>' +
     '</tr>';
-  }).join('') + (parsedItems.length > 150 ? '<tr><td colspan="4" style="text-align:center;color:var(--mu);padding:8px">…and ' + (parsedItems.length - 150) + ' more items</td></tr>' : '');
+  }).join('') + (parsedItems.length > 150 ? '<tr><td colspan="4" style="text-align:center;color:var(--mu);padding:8px">...and ' + (parsedItems.length - 150) + ' more items</td></tr>' : '');
 }
 
 function importParsed() {
   if (!parsedItems.length) { toast('Nothing to import', 'err'); return; }
-  // Always use the currently selected folder (never 'all' — use 'legrand' as default)
+  // Always use the currently selected folder (never 'all' - use 'legrand' as default)
   var folder = (curFolder && curFolder !== 'all') ? curFolder : (folders.indexOf('legrand') >= 0 ? 'legrand' : folders.filter(function(f){return f!=='all';})[0] || 'all');
   var added = 0, updated = 0;
   parsedItems.forEach(function(d) {
@@ -1853,7 +1871,7 @@ function cancelImport() {
 }
 
 // ================================================================
-// QUOTATION FROM HANDWRITTEN PHOTO — Gemini Vision
+// QUOTATION FROM HANDWRITTEN PHOTO - Gemini Vision
 // ================================================================
 var pendingQuoteRows = [];
 
@@ -1877,18 +1895,15 @@ async function handleQuotePhoto(e) {
 
   function showErr(title, lines) {
     var html = lines.map(function(l) {
-      return '<div style="margin-bottom:5px">• ' + l + '</div>';
+      return '<div style="margin-bottom:5px">- ' + l + '</div>';
     }).join('');
-    setSt('❌', title, '<div style="color:var(--ac3);font-size:11px;line-height:1.8">' + html + '</div>', 0);
+    setSt('', title, '<div style="color:var(--ac3);font-size:11px;line-height:1.8">' + html + '</div>', 0);
   }
 
-  // ── PRE-FLIGHT CHECKS ────────────────────────────────────────
+  //  PRE-FLIGHT CHECKS 
   var key = getGemKey();
   if (!key) {
-    showErr('No Gemini API Key', [
-      'Login as Admin → click ⚙ Settings → paste your Gemini key.',
-      'Get a free key at <a href="https://aistudio.google.com" target="_blank" style="color:var(--ac2)">aistudio.google.com</a> → Get API Key.'
-    ]);
+    setSt('', 'System not configured', '', 0);
     return;
   }
 
@@ -1902,8 +1917,8 @@ async function handleQuotePhoto(e) {
   if (isHEIC) {
     showErr('HEIC Format Not Supported', [
       'iPhones save photos in HEIC format which browsers cannot process.',
-      'Fix: On your iPhone go to Settings → Camera → Formats → select <b>Most Compatible</b>. This saves as JPEG.',
-      'Or: Open the photo and use AirDrop/Share → Save as JPEG before uploading.'
+      'Fix: On your iPhone go to Settings -> Camera -> Formats -> select <b>Most Compatible</b>. This saves as JPEG.',
+      'Or: Open the photo and use AirDrop/Share -> Save as JPEG before uploading.'
     ]);
     return;
   }
@@ -1928,13 +1943,13 @@ async function handleQuotePhoto(e) {
     return;
   }
 
-  // ── READ FILE ────────────────────────────────────────────────
-  setSt('📖', 'Reading file…', 'Preparing ' + (isImage ? 'image' : 'PDF') + ' for AI analysis…', 10);
+  //  READ FILE 
+  setSt('-', 'Reading file...', 'Preparing ' + (isImage ? 'image' : 'PDF') + ' for AI analysis...', 10);
 
   var base64, mimeType;
   try {
     base64 = await fileToBase64(file);
-    // Normalise MIME type — browsers sometimes give image/jpg instead of image/jpeg
+    // Normalise MIME type - browsers sometimes give image/jpg instead of image/jpeg
     mimeType = isPDF ? 'application/pdf'
              : (ftype === 'image/jpg' ? 'image/jpeg' : (ftype || 'image/jpeg'));
   } catch(e) {
@@ -1946,42 +1961,48 @@ async function handleQuotePhoto(e) {
   }
 
   var sizeKB = Math.round(base64.length * 0.75 / 1024);
-  setSt('🧠', 'AI Reading ' + (isImage ? 'Handwriting' : 'Document') + '…',
-    'Sending to Gemini 2.5 Flash (' + sizeKB + ' KB).<br>' +
+  setSt('', 'AI Reading ' + (isImage ? 'Handwriting' : 'Document') + '...',
+    'Sending for OCR extraction (' + sizeKB + ' KB).<br>' +
     'It will read every item, code, and quantity visible.<br>' +
-    '<span style="color:var(--ac)">Takes 5–20 seconds depending on complexity.</span>', 30);
+    '<span style="color:var(--ac)">Takes 5-20 seconds depending on complexity.</span>', 30);
 
-  // ── BUILD PROMPT ─────────────────────────────────────────────
-  // Keep DB lookup short — just codes and short names to save tokens
+  //  BUILD PROMPT 
+  // Keep DB lookup short - just codes and short names to save tokens
   var dbLookup = DB.slice(0, 500).map(function(d) {
     return [d.code, (d.brand ? d.brand.substring(0,10) : ''), d.name.substring(0,30), d.price || ''].filter(Boolean).join('|');
   }).join('\n');
 
-  var prompt = 'You are extracting items from a handwritten or printed quotation request for electrical products.\n\n' +
-    'TASK: Extract every line item into a JSON array.\n\n' +
+  var prompt = 'You are a careful OCR and quotation extraction engine for electrical products. Read handwriting conservatively, but do not skip visible rows.\n\n' +
+    'TASK: Extract every line item into a JSON array. Understand brand headings and repeated marks.\n\n' +
     'FOR EACH ITEM RETURN:\n' +
+    '- brand: Brand/range if visible or inherited from a heading. Empty string if unknown.\n' +
     '- name: Full product description. Expand: SW=Switch, SOC=Socket, BP=Bell Push, PLTE=Plate, REG=Regulator, IND=Indicator, DP=Double Pole, 1W/2W=1Way/2Way\n' +
     '- code: Product/part code if visible (numeric like 675513 or alphanumeric like EZ9F71106). Empty string if not visible.\n' +
     '- qty: Quantity as a number. Default to 1 if not stated.\n' +
     '- price: Unit price as number if shown. null otherwise.\n\n' +
     'RULES:\n' +
-    '1. Extract EVERY row even if partially readable.\n' +
-    '2. If handwriting is unclear, best guess with (?) in name e.g. "16A Switch (?)".\n' +
-    '3. Numbers at line start/end = quantities. Numbers with Rs/rupee symbol = prices.\n' +
-    '4. Product codes are 5-8 digit numbers or codes like EZ9F71106, P1001, IN8401.\n\n' +
+    '1. Extract EVERY product row even if partially readable.\n' +
+    '2. Brand inheritance is important: a brand/range written at the top (for example "ALZY", "Legrand Alzy", "Lg Alzy") applies to all following rows until a new brand/range appears. If the last row says "MYLINC 2M plate", only that row is MYLINC; previous rows remain ALZY.\n' +
+    '3. Ditto marks, quotes, repeated dots, or blank brand/name cells mean repeat the previous brand or repeated word. Example: a quote under ALZY still means ALZY.\n' +
+    '4. For module counts, keep the module as the item: "8 Module", "6 Module", "2 Module", "4 Module". Quantities like "10 nos", "20 nos", "7 nos" go into qty.\n' +
+    '5. If a handwritten line has no quantity but has a price at the right after a dash, put that number in price and qty = 1.\n' +
+    '6. If handwriting is unclear, best guess with (?) in name e.g. "16A Switch (?)".\n' +
+    '7. Numbers at line start can be quantities or ratings (6A, 16A, 25A). Numbers followed by nos/no/pcs are quantities. Numbers at the far right after a dash are usually prices.\n' +
+    '8. Product codes are 5-8 digit numbers or codes like EZ9F71106, P1001, IN8401.\n' +
+    '9. Do not merge rows. Do not convert prices into quantities.\n\n' +
     'PRODUCT DATABASE (code|brand|name|price):\n' + dbLookup + '\n\n' +
     'Return ONLY a valid JSON array starting with [ and ending with ]. No other text.\n' +
-    '[{"name":"item name","code":"code or empty","qty":1,"price":null}]';
+    '[{"brand":"brand or empty","name":"item name","code":"code or empty","qty":1,"price":null}]';
 
 
-  // ── CALL GEMINI WITH TIMEOUT ──────────────────────────────────
+  //  CALL GEMINI WITH TIMEOUT 
   var resp;
   try {
     var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    var timeoutId  = controller ? setTimeout(function() { controller.abort(); }, 45000) : null;
+    var timeoutId  = controller ? setTimeout(function() { controller.abort(); }, 90000) : null;
 
     resp = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + key,
+      'https://generativelanguage.googleapis.com/v1beta/models/' + OCR_MODEL + ':generateContent?key=' + key,
       {
         method:  'POST',
         signal:  controller ? controller.signal : undefined,
@@ -2004,14 +2025,14 @@ async function handleQuotePhoto(e) {
     if (timeoutId) clearTimeout(timeoutId);
   } catch(e) {
     if (e.name === 'AbortError') {
-      showErr('Request Timed Out (45 seconds)', [
+      showErr('Request Timed Out (90 seconds)', [
         'The AI took too long to respond.',
         'Try: smaller/simpler image, fewer items per photo, or check your internet connection.',
-        'Large detailed photos take longer — try cropping to just the list.'
+        'Large detailed photos take longer - try cropping to just the list.'
       ]);
     } else {
       showErr('Network Error', [
-        'Could not reach Gemini API: ' + e.message,
+        'Could not reach the system service: ' + e.message,
         'Check your internet connection.',
         'If on mobile data, try switching to WiFi.'
       ]);
@@ -2019,9 +2040,9 @@ async function handleQuotePhoto(e) {
     return;
   }
 
-  setSt('⚡', 'Parsing AI response…', 'Extracting items from AI output…', 80);
+  setSt('', 'Parsing AI response...', 'Extracting items from AI output...', 80);
 
-  // ── HANDLE API ERRORS ─────────────────────────────────────────
+  //  HANDLE API ERRORS 
   if (!resp.ok) {
     var errBody = {};
     try { errBody = await resp.json(); } catch(x) {}
@@ -2032,45 +2053,43 @@ async function handleQuotePhoto(e) {
       showErr('Image Could Not Be Processed', [
         'Gemini could not read this image: ' + errMsg,
         'Try: brighter lighting, hold camera steady, avoid blur.',
-        'Make sure the image is at least 300×300 pixels.',
+        'Make sure the image is at least 300-300 pixels.',
         'Screenshots usually work better than photos for printed lists.'
       ]);
     } else if (resp.status === 429) {
-      showErr('API Quota Exceeded — Try Again in a Minute', [
-        'You have hit the Gemini free tier rate limit.',
+      showErr('Service Busy - Try Again in a Minute', [
+        'The system service is temporarily busy.',
         'Wait 60 seconds and try again.',
-        'If this keeps happening, check your quota at <a href="https://aistudio.google.com" target="_blank" style="color:var(--ac2)">aistudio.google.com</a>.'
+        'If this keeps happening, try again later.'
       ]);
     } else if (resp.status === 403) {
-      showErr('API Key Invalid or Expired', [
-        'The Gemini API key was rejected (403 Forbidden).',
-        'Login as Admin → ⚙ Settings → paste a fresh API key.',
-        'Get a new key at <a href="https://aistudio.google.com" target="_blank" style="color:var(--ac2)">aistudio.google.com</a>.'
+      showErr('System Not Configured', [
+        'System not configured.'
       ]);
     } else if (resp.status === 413 || errMsg.indexOf('too large') >= 0) {
-      showErr('Image Too Large for API', [
+      showErr('Image Too Large', [
         'The image file is too large even after compression.',
         'Try: take a screenshot instead (much smaller file).',
         'Or: crop the image to just the list before uploading.'
       ]);
     } else {
-      showErr('Gemini API Error (' + resp.status + ')', [
+      showErr('System Error (' + resp.status + ')', [
         errMsg,
         'Try again in a few seconds.',
-        'If it keeps failing, check your API key is correct.'
+        'If it keeps failing, check the device settings.'
       ]);
     }
     return;
   }
 
-  // ── PARSE RESPONSE ────────────────────────────────────────────
+  //  PARSE RESPONSE 
   var data, rawText, items;
   try {
     data = await resp.json();
   } catch(e) {
     showErr('Could Not Parse API Response', [
       'Gemini returned an unexpected response format.',
-      'Try again — this is usually a temporary issue.'
+      'Try again - this is usually a temporary issue.'
     ]);
     return;
   }
@@ -2103,28 +2122,28 @@ async function handleQuotePhoto(e) {
     showErr('AI Returned Empty Response', [
       'The image may be too dark, blurry, or low-resolution.',
       'Tips for better results:',
-      '• Use good lighting — natural daylight works best',
-      '• Hold the camera steady and close to the paper',
-      '• Make sure all text is clearly visible',
-      '• Try a screenshot if working from a digital document'
+      '- Use good lighting - natural daylight works best',
+      '- Hold the camera steady and close to the paper',
+      '- Make sure all text is clearly visible',
+      '- Try a screenshot if working from a digital document'
     ]);
     return;
   }
 
   // Try to detect if Gemini returned a description instead of JSON
   if (rawText.indexOf('[') < 0 && rawText.indexOf('{') < 0) {
-    // Gemini described the image instead of extracting — retry with stricter prompt
-    setSt('🔄', 'Retrying with stricter prompt…', 'First attempt returned text instead of data. Retrying…', 60);
+    // Gemini described the image instead of extracting - retry with stricter prompt
+    setSt('', 'Retrying with stricter prompt...', 'First attempt returned text instead of data. Retrying...', 60);
     try {
       var retryResp = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + key,
+        'https://generativelanguage.googleapis.com/v1beta/models/' + OCR_MODEL + ':generateContent?key=' + key,
         {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ parts: [
               { inline_data: { mime_type: mimeType, data: base64 } },
-              { text: 'Extract ALL items from this image into a JSON array ONLY. Each object must have: name (string), code (string, empty if none), qty (number), price (number or null). Return ONLY the JSON array starting with [ and ending with ]. No other text.' }
+              { text: 'Extract ALL items from this image into a JSON array ONLY. Each object must have: brand (string, inherited from headings like ALZY until a new brand appears), name (string), code (string, empty if none), qty (number), price (number or null). Return ONLY the JSON array starting with [ and ending with ]. No other text.' }
             ]}],
             generationConfig: { maxOutputTokens: 4000, temperature: 0 }
           })
@@ -2144,18 +2163,20 @@ async function handleQuotePhoto(e) {
     var preview = rawText ? rawText.substring(0, 300) : 'No text extracted';
     showErr('Could Not Extract Items', [
       'AI response could not be parsed as item data.',
-      'What the AI saw: <i style="color:var(--mu)">' + X(preview) + (rawText.length > 300 ? '…' : '') + '</i>',
+      'What the AI saw: <i style="color:var(--mu)">' + X(preview) + (rawText.length > 300 ? '...' : '') + '</i>',
       'Try: better lighting, straighter angle, less background clutter.',
       'Make sure the list items are clearly written, one per line.'
     ]);
     return;
   }
 
-  // ── ENRICH WITH DB MATCHES ────────────────────────────────────
+  //  ENRICH WITH DB MATCHES 
   pendingQuoteRows = items.map(function(d) {
+    var rawBrand = String(d.brand || d.range || '').trim();
     var rawName = String(d.name || '').trim();
     var rawCode = String(d.code || '').trim();
     var match   = null;
+    var matchText = (rawBrand ? rawBrand + ' ' : '') + rawName;
 
     // 1. Exact code match (most reliable)
     if (rawCode) {
@@ -2166,15 +2187,17 @@ async function handleQuotePhoto(e) {
     // 2. Exact name match
     if (!match && rawName) {
       match = DB.find(function(e) {
-        return e.name && e.name.trim().toLowerCase() === rawName.toLowerCase();
+        var itemName = String(e.name || '').trim().toLowerCase();
+        var fullName = ((e.brand || '') + ' ' + (e.name || '')).trim().toLowerCase();
+        return itemName === rawName.toLowerCase() || fullName === matchText.toLowerCase();
       });
     }
     // 3. Fuzzy: significant words all appear in DB item
-    if (!match && rawName.length > 3) {
-      var words = rawName.toLowerCase()
+    if (!match && matchText.length > 3) {
+      var words = matchText.toLowerCase()
         .replace(/[^a-z0-9 ]/g, ' ')
         .split(/\s+/)
-        .filter(function(w) { return w.length > 2; });
+        .filter(function(w) { return w.length > 2 && ['nos','no','pcs','piece','pieces'].indexOf(w) < 0; });
       if (words.length >= 2) {
         // Try progressively relaxed matching
         match = DB.find(function(e) {
@@ -2193,11 +2216,17 @@ async function handleQuotePhoto(e) {
       }
     }
 
+    var displayName = rawName;
+    if (rawBrand && rawName.toLowerCase().indexOf(rawBrand.toLowerCase()) < 0) {
+      displayName = rawBrand + ' - ' + rawName;
+    }
+
     var row = {
-      name:  match ? ((match.brand ? match.brand + ' - ' : '') + match.name) : rawName,
+      brand: match ? (match.brand || rawBrand) : rawBrand,
+      name:  match ? ((match.brand ? match.brand + ' - ' : '') + match.name) : displayName,
       code:  match ? (match.code || rawCode) : rawCode,
-      price: match ? (match.price || d.price || null) : (d.price || null),
-      qty:   Math.max(1, parseInt(d.qty) || 1),
+      price: match ? (match.price || parseFloat(d.price) || null) : (parseFloat(d.price) || null),
+      qty:   Math.max(1, parseFloat(d.qty) || 1),
       disc:  0,
       _matched: !!match
     };
@@ -2212,7 +2241,7 @@ async function handleQuotePhoto(e) {
     return;
   }
 
-  // ── SHOW PREVIEW ──────────────────────────────────────────────
+  //  SHOW PREVIEW 
   box.style.display = 'none';
   var matched   = pendingQuoteRows.filter(function(r) { return r._matched; }).length;
   var unmatched = pendingQuoteRows.length - matched;
@@ -2221,18 +2250,18 @@ async function handleQuotePhoto(e) {
   var prevBody = document.getElementById('qu-preview-body');
   var prevCnt  = document.getElementById('qu-preview-cnt');
 
-  if (prevCnt) prevCnt.textContent = pendingQuoteRows.length + ' items — ' + matched + ' matched in DB, ' + unmatched + ' unmatched';
+  if (prevCnt) prevCnt.textContent = pendingQuoteRows.length + ' items - ' + matched + ' matched in DB, ' + unmatched + ' unmatched';
 
   if (prevBody) prevBody.innerHTML = pendingQuoteRows.map(function(r) {
     var rowStyle = r._matched ? '' : 'background:rgba(232,197,71,0.05)';
     var badge    = r._matched
-      ? '<span style="color:var(--ok);font-size:10px">✓ matched</span>'
-      : '<span style="color:var(--mu);font-size:10px">⚠ not in DB</span>';
+      ? '<span style="color:var(--ok);font-size:10px">OK matched</span>'
+      : '<span style="color:var(--mu);font-size:10px"> not in DB</span>';
     return '<tr style="' + rowStyle + '">' +
       '<td style="padding:5px 9px">' + X(r.name) + ' ' + badge + '</td>' +
       '<td style="padding:5px 9px;text-align:center;font-weight:600">' + r.qty + '</td>' +
-      '<td style="padding:5px 9px">' + (r.price ? '₹' + r.price : '—') + '</td>' +
-      '<td style="padding:5px 9px;color:var(--ac2);font-size:11px">' + X(r.code || '—') + '</td>' +
+      '<td style="padding:5px 9px">' + (r.price ? 'Rs. ' + r.price : '-') + '</td>' +
+      '<td style="padding:5px 9px;color:var(--ac2);font-size:11px">' + X(r.code || '-') + '</td>' +
     '</tr>';
   }).join('');
 
@@ -2240,7 +2269,7 @@ async function handleQuotePhoto(e) {
   if (cntEl) cntEl.textContent = pendingQuoteRows.length + ' items found';
 
   var summaryMsg = matched + ' of ' + pendingQuoteRows.length + ' items matched in your database';
-  if (unmatched > 0) summaryMsg += ' — ' + unmatched + ' unmatched items will be added without a code/price';
+  if (unmatched > 0) summaryMsg += ' - ' + unmatched + ' unmatched items will be added without a code/price';
   toast(summaryMsg, 'ok');
 }
 
@@ -2271,8 +2300,14 @@ async function handleQuoteExcel(e) {
   if (!file) return;
   e.target.value = '';
 
+  var fname = file.name.toLowerCase();
+  var ftype = file.type || '';
+  if (ftype === 'application/pdf' || fname.endsWith('.pdf')) {
+    return handleQuotePhoto({ target: { files: [file], value: '' } });
+  }
+
   var cnt = document.getElementById('qu-count');
-  if (cnt) cnt.textContent = 'Reading…';
+  if (cnt) cnt.textContent = 'Reading...';
 
   try {
     var buf  = await file.arrayBuffer();
@@ -2299,8 +2334,8 @@ async function handleQuoteExcel(e) {
       return '<tr>' +
         '<td style="padding:5px 9px">' + X(r.name) + '</td>' +
         '<td style="padding:5px 9px;text-align:center">' + r.qty + '</td>' +
-        '<td style="padding:5px 9px">' + (r.price ? '₹' + r.price : '—') + '</td>' +
-        '<td style="padding:5px 9px;color:var(--ac2)">' + X(r.code || '—') + '</td>' +
+        '<td style="padding:5px 9px">' + (r.price ? 'Rs. ' + r.price : '-') + '</td>' +
+        '<td style="padding:5px 9px;color:var(--ac2)">' + X(r.code || '-') + '</td>' +
       '</tr>';
     }).join('');
     if (prev) prev.style.display = 'block';
@@ -2354,7 +2389,7 @@ function extractInvoiceRows(data) {
         descUP.indexOf('CGST') >= 0 || descUP.indexOf('SGST') >= 0 || descUP.indexOf('TAX') >= 0) continue;
     if (desc.length < 2 && code.length < 2) continue;
 
-    // Match against DB — code match is most reliable
+    // Match against DB - code match is most reliable
     var match = null;
     if (code) {
       var codeClean = code.replace(/\s+/g, '').toUpperCase();
@@ -2439,11 +2474,10 @@ function parseGeminiJSON(txt) {
 
 
 // ================================================================
-// GEMINI KEY — Encrypted storage via Sheet
+// SYSTEM KEY
 // ================================================================
 
-// Simple XOR obfuscation with a stable salt
-// Not cryptographically strong but prevents casual viewing
+// Legacy helpers kept only for older cached pages.
 function obfuscate(str, salt) {
   var out = '';
   for (var i = 0; i < str.length; i++) {
@@ -2463,117 +2497,52 @@ function deobfuscate(b64, salt) {
   } catch(e) { return ''; }
 }
 
-// Salt derived from Sheet URL (stable, not a secret, just stops plaintext storage)
+// Legacy salt helper.
 function getSalt() {
   var u = SCRIPT_URL || 'meq-salt-2025';
   return u.slice(-20);
 }
 
+// Device-local activation. The key is never written to Google Sheets.
 async function saveGeminiKey() {
-  var raw = document.getElementById('set-gem').value.trim();
-  var st  = document.getElementById('set-status');
+  var key = (document.getElementById('set-gem').value || '').trim();
+  var st = document.getElementById('set-status');
+  st.style.display = 'block';
 
-  if (!raw) {
-    st.textContent = 'Please paste your Gemini API key.';
-    st.style.color = 'var(--ac3)'; st.style.display = 'block'; return;
-  }
-  if (!raw.startsWith('AIza')) {
-    st.textContent = 'Keys start with “AIza” — check your key.';
-    st.style.color = 'var(--ac3)'; st.style.display = 'block'; return;
+  if (!/^AIza[0-9A-Za-z_\-]{20,}$/.test(key)) {
+    st.textContent = 'System not configured.';
+    st.style.color = 'var(--ac3)';
+    return;
   }
 
-  st.textContent = 'Verifying key…'; st.style.color = 'var(--mu)'; st.style.display = 'block';
-
-  // Quick test: call Gemini with a tiny prompt to verify the key works
-  try {
-    var testResp = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + raw,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: 'Reply with the single word OK' }] }],
-          generationConfig: { maxOutputTokens: 5 }
-        })
-      }
-    );
-    if (testResp.status === 400 || testResp.status === 403) {
-      st.textContent = 'Invalid API key (rejected by Gemini). Check the key and try again.';
-      st.style.color = 'var(--ac3)'; return;
-    }
-    if (testResp.status === 429) {
-      // Quota issue but key is valid — continue saving
-    }
-  } catch(e) {
-    st.textContent = 'Network error verifying key: ' + e.message;
-    st.style.color = 'var(--ac3)'; return;
+  var token = lsGet('meq_device_token', '');
+  if (!token) {
+    token = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
+    lsSet('meq_device_token', token);
   }
+  api('register_device', { token: token, label: navigator.userAgent.slice(0,40) }).catch(function(){});
 
-  st.textContent = 'Saving to all devices…'; st.style.color = 'var(--mu)';
-
-  // Save locally first (works immediately on this device)
-  window._gemKey = raw;
-  lsSet('meq_gk_cache', raw);
-
-  // Save to Sheet via no-cors POST (works around CORS for writes)
-  // Can't read response with no-cors, so we save locally and verify after
-  var url = getScriptUrl();
-  if (url) {
-    try {
-      var enc = obfuscate(raw, getSalt());
-      await fetch(url, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ action: 'set_config', key: 'gem_enc', value: enc })
-      });
-      // Wait briefly then verify by reading back
-      await new Promise(function(r) { setTimeout(r, 2000); });
-      var cfg = await api('config');
-      if (cfg && cfg.ok && cfg.config && cfg.config.gem_enc) {
-        var verified = deobfuscate(cfg.config.gem_enc, getSalt());
-        if (verified === raw) {
-          st.textContent = '✓ Saved and verified on all devices!';
-          st.style.color = 'var(--ok)';
-          toast('Gemini key saved — active everywhere', 'ok');
-          setTimeout(function() { closeModal('modal-settings'); st.style.display = 'none'; }, 1800);
-          return;
-        }
-      }
-      // Sheet save may have worked but verification is uncertain
-      st.textContent = '✓ Saved locally. Sheet sync may take a moment.';
-      st.style.color = 'var(--ok)';
-      toast('Key saved — active on this device now', 'ok');
-      setTimeout(function() { closeModal('modal-settings'); st.style.display = 'none'; }, 1800);
-    } catch(e) {
-      // Save locally worked even if Sheet failed
-      st.textContent = '✓ Saved on this device. Sheet sync failed — try reconnecting.';
-      st.style.color = 'var(--ac)';
-      setTimeout(function() { closeModal('modal-settings'); st.style.display = 'none'; }, 2500);
-    }
-  } else {
-    // No Sheet URL — local only
-    st.textContent = '✓ Saved on this device (no Sheet connected).';
-    st.style.color = 'var(--ok)';
-    toast('Key saved locally', 'ok');
-    setTimeout(function() { closeModal('modal-settings'); st.style.display = 'none'; }, 1500);
-  }
+  window._gemKey = key;
+  lsSet('meq_gk_cache', key);
+  st.textContent = 'OK System activated!';
+  st.style.color = 'var(--ok)';
+  document.getElementById('set-gem').value = '';
+  setTimeout(function() { closeModal('modal-settings'); st.style.display='none'; }, 1200);
+  toast('System activated', 'ok');
 }
 
 async function loadGemKey() {
-  // Try local cache first (instant)
   var cached = lsGet('meq_gk_cache', '');
-  if (cached) { window._gemKey = cached; return; }
+  if (cached && cached.startsWith('AIza')) window._gemKey = cached;
+}
 
-  // Fetch from Sheet
-  var cfg = await api('config');
-  if (cfg && cfg.ok && cfg.config && cfg.config.gem_enc) {
-    var raw = deobfuscate(cfg.config.gem_enc, getSalt());
-    if (raw && raw.startsWith('AIza')) {
-      window._gemKey = raw;
-      lsSet('meq_gk_cache', raw);
-    }
+async function approveOwnDevice() {
+  var token = lsGet('meq_device_token', '');
+  if (!token) {
+    token = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
+    lsSet('meq_device_token', token);
   }
+  await api('register_device', { token: token, label: navigator.userAgent.slice(0,40) });
 }
 
 
@@ -2582,7 +2551,7 @@ async function loadGemKey() {
 // ================================================================
 function toast(msg, type) {
   var el = document.getElementById('toast');
-  el.textContent = (type === 'ok' ? '✓ ' : type === 'err' ? '✕ ' : '⚡ ') + msg;
+  el.textContent = (type === 'ok' ? 'OK ' : type === 'err' ? 'x ' : ' ') + msg;
   el.className = 'show' + (type ? ' ' + type : '');
   clearTimeout(toastT);
   toastT = setTimeout(function() { el.classList.remove('show'); }, 2800);
@@ -2593,7 +2562,7 @@ function X(s) {
 }
 
 // ================================================================
-// PRINT — suppress browser URL/header/footer
+// PRINT - suppress browser URL/header/footer
 // ================================================================
 window.onbeforeprint = function() {
   // Inject a style that collapses the browser's header/footer margin area

@@ -195,7 +195,6 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
 
 /* UTIL */
 .tag{color:var(--ac)}
-.np{/* no-print class */}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:var(--sf)}
 ::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
@@ -682,10 +681,8 @@ async function connectSheets() {
 async function fullSync() {
   var url = getScriptUrl();
   if (!url) return;
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    setSyncStatus('err', 'offline');
-    return;
-  }
+  // Note: navigator.onLine is unreliable (especially on file:// URLs and Windows).
+  // We always attempt the call and only use navigator.onLine as a label hint on failure.
   setSyncStatus('spin', 'syncing');
   try {
     var [items, folds, hist, cfg] = await Promise.all([
@@ -716,8 +713,7 @@ async function fullSync() {
     setSyncStatus('ok', 'synced');
     renderFolders(); renderDB();
   } catch(e) {
-    var trulyOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
-    setSyncStatus('err', trulyOffline ? 'offline' : 'sheet unreachable');
+    setSyncStatus('err', 'sheet unreachable');
   }
 }
 
@@ -838,15 +834,15 @@ function init() {
 
   // Auto-connect and sync on every load (fetches fresh gem key from Sheet too)
   setSyncStatus('spin', 'syncing');
-  fullSync().catch(function() {
-    var trulyOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
-    setSyncStatus('err', trulyOffline ? 'offline' : 'sheet unreachable');
-  });
+  fullSync().catch(function() { setSyncStatus('err', 'sheet unreachable'); });
 
-  // Live status when device connectivity changes
+  // Re-sync when the OS reports connectivity returning. We don't act on the 'offline'
+  // event because navigator.onLine is unreliable and we don't want to falsely block work.
   if (typeof window !== 'undefined' && window.addEventListener) {
-    window.addEventListener('online',  function() { setSyncStatus('spin', 'syncing'); fullSync().catch(function(){}); });
-    window.addEventListener('offline', function() { setSyncStatus('err', 'offline'); });
+    window.addEventListener('online', function() {
+      setSyncStatus('spin', 'syncing');
+      fullSync().catch(function() { setSyncStatus('err', 'sheet unreachable'); });
+    });
   }
 }
 
@@ -1730,7 +1726,7 @@ async function parseDBPDF(file) {
       'Return ONLY a valid JSON array. No markdown fences, no explanation, no code blocks.',
       'Format: [{"name":"item name","code":"part/ref code","price":number_or_null,"brand":"brand name"}]',
       'For invoices also include: "qty": number'
-    ].join('\n');
+    ]).join('\n');
 
     var resp = await callGeminiWithFallback(key, {
       contents: [{

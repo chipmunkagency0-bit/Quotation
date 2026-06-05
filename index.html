@@ -784,7 +784,19 @@ async function pushItems() {
 
     // Step 2: Append chunks
     for (var i = 0; i < total; i += CHUNK) {
-      var chunk = DB.slice(i, i + CHUNK);
+      // Enrich each item with search_tags before pushing to sheets
+      var chunk = DB.slice(i, i + CHUNK).map(function(item) {
+        var base = ((item.brand || '') + ' ' + (item.name || '')).toLowerCase();
+        // Build synonym-expanded tag string for the extra column
+        var tags = [base];
+        if (typeof SYNONYMS !== 'undefined') {
+          SYNONYMS.forEach(function(pair) {
+            if (pair[0].test(base)) tags.push(base.replace(pair[0], pair[1]));
+            pair[0].lastIndex = 0;
+          });
+        }
+        return Object.assign({}, item, { search_tags: tags.join(' | ') });
+      });
       await fetch(url, {
         method: 'POST',
         mode: 'no-cors',
@@ -1791,13 +1803,15 @@ async function parseDBPDF(file) {
       '2. MULTI-COLUMN PRICE LISTS: If a row has multiple Reference+Price pairs (1P Ref/MRP, 2P Ref/MRP etc), create one item per non-empty pair. Include pole info in the name.',
       '3. MULTI-COLOUR: Columns like "Ref White, MRP White, Ref Grey, MRP Grey" -> one item per colour, append colour to name.',
       '4. BRAND: Use section headings (MYLINC, MYRIUS, RTR, Easy9, Livia etc) as the brand field. For invoices, extract brand from the item description.',
-      '5. NAMES: Clean up item descriptions - remove LEG, NXG suffix words if they are not part of the actual product name. Fix obvious abbreviations.',
-      '6. SKIP rows where code/reference is "-", blank, or "N/A". Skip header rows and total rows.',
-      '7. PRICES: Numbers only, no Rs.  or Rs symbols. Use null if not available.',
-      '8. QUANTITIES: Include qty field if this is an invoice/order, otherwise omit.',
+      '5. NAMES: Clean, normalised product names. Expand common abbreviations: DP=Double Pole, SP=Single Pole, TP=Triple Pole, MCB=Miniature Circuit Breaker, RCCB=Residual Current Circuit Breaker, SW=Switch, SOC=Socket, BP=Bell Push, IND=Indicator, REG=Regulator. Keep BOTH the abbreviation and expansion in the name so it is searchable either way, e.g. "6A DP (Double Pole) MCB". Remove only meaningless suffixes like LEG, NXG.',
+      '6. INTELLIGENT MATCHING: For every item, also produce a search_tags string — a space-separated list of alternate phrasings of the name. Include the original, the abbreviated form, the expanded form, and any pole/rating variants visible. Example: "6A Double Pole MCB" → search_tags: "6a dp mcb 6a double pole mcb miniature circuit breaker 6a".',
+      '7. SKIP rows where code/reference is "-", blank, or "N/A". Skip header rows and total rows.',
+      '8. PRICES: Numbers only, no Rs. or ₹ symbols. Use null if not available.',
+      '9. QUANTITIES: Include qty field if this is an invoice/order, otherwise omit.',
+      '10. HEADING BRAND INHERITANCE: A brand written as a section heading applies to ALL rows below it until a new heading appears. An item with a different brand explicitly in its text is the only exception — that one row gets that brand, rest stay as the heading brand.',
       '',
       'Return ONLY a valid JSON array. No markdown fences, no explanation, no code blocks.',
-      'Format: [{"name":"item name","code":"part/ref code","price":number_or_null,"brand":"brand name"}]',
+      'Format: [{"name":"item name","code":"part/ref code","price":number_or_null,"brand":"brand name","search_tags":"alternate search phrases space separated"}]',
       'For invoices also include: "qty": number'
     ]).join('\n');
 
@@ -2296,47 +2310,116 @@ async function handleQuotePhoto(e) {
     return;
   }
 
+  // ── DB synonym expansion ──────────────────────────────────────
+  var SYNONYMS = [
+    [/\bdouble[\s-]?pole\b/gi, 'dp'],
+    [/\bdp\b/gi,               'double pole'],
+    [/\bsingle[\s-]?pole\b/gi, 'sp'],
+    [/\bsp\b/gi,               'single pole'],
+    [/\btriple[\s-]?pole\b/gi, 'tp'],
+    [/\btp\b/gi,               'triple pole'],
+    [/\bfour[\s-]?pole\b/gi,  'fp'],
+    [/\bfp\b/gi,               'four pole'],
+    [/\bmcb\b/gi,              'miniature circuit breaker'],
+    [/\bminiature circuit breaker\b/gi, 'mcb'],
+    [/\brccb\b/gi,             'residual current circuit breaker'],
+    [/\belcb\b/gi,             'earth leakage circuit breaker'],
+    [/\bsoc\b/gi,              'socket'],
+    [/\bsocket\b/gi,           'soc'],
+    [/\bsw\b/gi,               'switch'],
+    [/\bswitch\b/gi,           'sw'],
+    [/\bbp\b/gi,               'bell push'],
+    [/\bbell push\b/gi,        'bp'],
+    [/\bind\b/gi,              'indicator'],
+    [/\bindicator\b/gi,        'ind'],
+    [/\breg\b/gi,              'regulator'],
+    [/\bregulator\b/gi,        'reg']
+  ];
+
+  function expandSynonyms(str) {
+    var variants = [str];
+    SYNONYMS.forEach(function(pair) {
+      pair[0].lastIndex = 0;
+      if (pair[0].test(str)) {
+        pair[0].lastIndex = 0;
+        variants.push(str.replace(pair[0], pair[1]));
+      }
+      pair[0].lastIndex = 0;
+    });
+    return variants;
+  }
+
   //  ENRICH WITH DB MATCHES 
   pendingQuoteRows = items.map(function(d) {
     var rawBrand = String(d.brand || d.range || '').trim();
-    var rawName = String(d.name || '').trim();
-    var rawCode = String(d.code || '').trim();
-    var match   = null;
+    var rawName  = String(d.name  || '').trim();
+    var rawCode  = String(d.code  || '').trim();
+    var match    = null;
     var matchText = (rawBrand ? rawBrand + ' ' : '') + rawName;
 
-    // 1. Exact code match (most reliable)
+    // STEP 1 — Exact code match (most reliable, always first)
     if (rawCode) {
       match = DB.find(function(e) {
         return e.code && e.code.replace(/\s+/g,'').toLowerCase() === rawCode.replace(/\s+/g,'').toLowerCase();
       });
     }
-    // 2. Exact name match
+
+    // STEP 2 — Exact name-only match (name field only)
     if (!match && rawName) {
-      match = DB.find(function(e) {
-        var itemName = String(e.name || '').trim().toLowerCase();
-        var fullName = ((e.brand || '') + ' ' + (e.name || '')).trim().toLowerCase();
-        return itemName === rawName.toLowerCase() || fullName === matchText.toLowerCase();
-      });
+      var rnLow = rawName.toLowerCase();
+      match = DB.find(function(e) { return String(e.name||'').trim().toLowerCase() === rnLow; });
     }
-    // 3. Fuzzy: significant words all appear in DB item
+
+    // STEP 3 — Exact brand+name match
+    if (!match && matchText.length > 2) {
+      var mtLow = matchText.toLowerCase();
+      match = DB.find(function(e) { return ((e.brand||'')+' '+(e.name||'')).trim().toLowerCase() === mtLow; });
+    }
+
+    // STEP 4 — All tokens in NAME only, with synonym expansion
+    if (!match && rawName.length > 3) {
+      var nameVariants = expandSynonyms(rawName.toLowerCase());
+      for (var ni = 0; ni < nameVariants.length && !match; ni++) {
+        var nwords = nameVariants[ni].replace(/[^a-z0-9 ]/g,' ').split(/\s+/)
+          .filter(function(w){ return w.length > 1 && ['nos','no','pcs','the','and','for'].indexOf(w)<0; });
+        if (!nwords.length) continue;
+        match = DB.find(function(e){
+          var hay = String(e.name||'').toLowerCase();
+          return nwords.every(function(w){ return hay.indexOf(w)>=0; });
+        });
+      }
+    }
+
+    // STEP 5 — All tokens in brand+name, with synonym expansion
     if (!match && matchText.length > 3) {
-      var words = matchText.toLowerCase()
-        .replace(/[^a-z0-9 ]/g, ' ')
-        .split(/\s+/)
-        .filter(function(w) { return w.length > 2 && ['nos','no','pcs','piece','pieces'].indexOf(w) < 0; });
-      if (words.length >= 2) {
-        // Try progressively relaxed matching
-        match = DB.find(function(e) {
-          var hay = ((e.brand||'') + ' ' + (e.name||'')).toLowerCase();
-          return words.every(function(w) { return hay.indexOf(w) >= 0; });
+      var fullVariants = expandSynonyms(matchText.toLowerCase());
+      for (var fi = 0; fi < fullVariants.length && !match; fi++) {
+        var fwords = fullVariants[fi].replace(/[^a-z0-9 ]/g,' ').split(/\s+/)
+          .filter(function(w){ return w.length > 1 && ['nos','no','pcs','the','and','for'].indexOf(w)<0; });
+        if (fwords.length < 2) continue;
+        match = DB.find(function(e){
+          var hay = ((e.brand||'')+' '+(e.name||'')).toLowerCase();
+          return fwords.every(function(w){ return hay.indexOf(w)>=0; });
+        });
+      }
+    }
+
+    // STEP 6 — Partial 60% threshold: name-only first, then brand+name, with synonyms
+    if (!match && matchText.length > 3) {
+      var pbVariants = expandSynonyms(matchText.toLowerCase());
+      for (var pi = 0; pi < pbVariants.length && !match; pi++) {
+        var pwords = pbVariants[pi].replace(/[^a-z0-9 ]/g,' ').split(/\s+/)
+          .filter(function(w){ return w.length > 1 && ['nos','no','pcs','the','and','for'].indexOf(w)<0; });
+        if (pwords.length < 2) continue;
+        var thr = Math.max(1, Math.ceil(pwords.length * 0.6));
+        match = DB.find(function(e){
+          var hay = String(e.name||'').toLowerCase();
+          return pwords.filter(function(w){ return hay.indexOf(w)>=0; }).length >= thr;
         });
         if (!match) {
-          // Match if at least 60% of words match
-          var threshold = Math.max(1, Math.floor(words.length * 0.6));
-          match = DB.find(function(e) {
-            var hay = ((e.brand||'') + ' ' + (e.name||'')).toLowerCase();
-            var hits = words.filter(function(w) { return hay.indexOf(w) >= 0; }).length;
-            return hits >= threshold;
+          match = DB.find(function(e){
+            var hay = ((e.brand||'')+' '+(e.name||'')).toLowerCase();
+            return pwords.filter(function(w){ return hay.indexOf(w)>=0; }).length >= thr;
           });
         }
       }
@@ -2900,6 +2983,7 @@ async function loadGemKey() {
   var cached = lsGet('meq_gk_cache', '');
   if (cached && cached.startsWith('AIza')) window._gemKey = cached;
 }
+
 
 async function approveOwnDevice() {
   var token = lsGet('meq_device_token', '');

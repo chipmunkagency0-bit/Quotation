@@ -393,7 +393,6 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
         </table>
       </div>
       <div class="arow" style="margin-top:10px">
-        <button class="btn btn-p btn-sm" onclick="insertQuoteRows()">OK Add to Quotation</button>
         <button class="btn btn-g btn-sm" onclick="cancelQuotePhoto()">x Cancel</button>
       </div>
     </div>
@@ -1905,8 +1904,12 @@ function smartExtract(rows, sheetName) {
       row.forEach(function(cell, ci) {
         var up = cell.toUpperCase();
         if (nameCol  < 0 && (up.indexOf('ITEM') >= 0 || up.indexOf('NAME') >= 0 || up.indexOf('DESCRIPTION') >= 0)) nameCol  = ci;
-        if (codeCol  < 0 && (up.indexOf('CODE') >= 0 || up.indexOf('REF') >= 0 || up.indexOf('PART') >= 0 || up.indexOf('ITEM NO') >= 0 || up === 'NO' || isCode(cell))) codeCol = ci;
+        if (codeCol  < 0 && (up.indexOf('CODE') >= 0 || up.indexOf('REF') >= 0 || up.indexOf('PART') >= 0 || up.indexOf('REFERENCE') >= 0 || up.indexOf('ITEM NO') >= 0 || up === 'NO' || isCode(cell))) codeCol = ci;
         if (priceCol < 0 && (up.indexOf('LIST') >= 0 || up.indexOf('MRP') >= 0 || up.indexOf('PRICE') >= 0 || up.indexOf('RATE') >= 0)) priceCol = ci;
+        // Detect specification column explicitly
+        if (up === 'SPECIFICATION' || up === 'SPEC' || up === 'SPECS' || up === 'RATING' || up === 'SIZE' || up === 'TYPE') {
+          // mark it; we handle spec merging in the data row section below using runtime column detection
+        }
       });
       inTable = true;
       continue;
@@ -1921,8 +1924,39 @@ function smartExtract(rows, sheetName) {
       if (!itemName || itemName.toUpperCase() === 'ITEM' || itemName.toUpperCase() === 'ITEM NAME' || itemName.toUpperCase() === 'DESCRIPTION') continue;
       if (itemName.length < 2) continue;
 
+      // Detect Specification column (e.g. "63A 4P", "1.0 SQMM – 90Mtr")
+      var specCol = -1;
+      row.forEach(function(cell, ci) {
+        if (ci === nameCol || ci === codeCol || ci === priceCol) return;
+        var up = String(cell || '').toUpperCase().trim();
+        if (up.length > 1 && !isPrice(cell) && !isCode(cell) &&
+            (up.match(/^\d+A\s*(1P|2P|3P|4P|SP|DP|TP|FP|1-P|2-P|3-P|4-P)\b/i) ||
+             up.match(/SQMM|SQMT|SQFT|MM|MTR|NOS|MODULE|POLE/i) ||
+             up.match(/^\d+(\.\d+)?\s*(SQMM|MM|MTR)/i))) {
+          specCol = ci;
+        }
+      });
+
+      // Merge spec into name if found and not already present
+      var spec = specCol >= 0 ? (row[specCol] || '').trim() : '';
+      var richName = itemName;
+      if (spec && itemName.toLowerCase().indexOf(spec.toLowerCase()) < 0) {
+        richName = spec + ' ' + itemName;
+      }
+
+      // Expand pole abbreviations in richName for searchability
+      richName = richName
+        .replace(/\b4P\b/gi, '4P Four Pole')
+        .replace(/\bFP\b/gi, 'FP Four Pole')
+        .replace(/\b3P\b/gi, '3P Triple Pole')
+        .replace(/\bTP\b/gi, 'TP Triple Pole')
+        .replace(/\b2P\b/gi, '2P Double Pole')
+        .replace(/\bDP\b/gi, 'DP Double Pole')
+        .replace(/\b1P\b/gi, '1P Single Pole')
+        .replace(/\bSP\b/gi, 'SP Single Pole');
+
       items.push({
-        name:  itemName,
+        name:  richName,
         code:  itemCode,
         price: isPrice(itemPrice) ? parseFloat(itemPrice) : null,
         brand: brand
@@ -2134,7 +2168,10 @@ async function handleQuotePhoto(e) {
     'TASK: Extract every line item into a JSON array. Understand brand headings and repeated marks.\n\n' +
     'FOR EACH ITEM RETURN:\n' +
     '- brand: Brand/range if visible or inherited from a heading. Empty string if unknown.\n' +
-    '- name: Full product description. Expand: SW=Switch, SOC=Socket, BP=Bell Push, PLTE=Plate, REG=Regulator, IND=Indicator, DP=Double Pole, 1W/2W=1Way/2Way\n' +
+    '- name: Full product description. CRITICALLY expand ALL pole/type abbreviations in the name:\n' +
+    '  SP or 1P = Single Pole, DP or 2P = Double Pole, TP or 3P = Triple Pole, FP or 4P = Four Pole.\n' +
+    '  ALWAYS write BOTH forms: e.g. "63A FP MCB" → "63A FP Four Pole MCB"; "32A DP RCCB" → "32A DP Double Pole RCCB".\n' +
+    '  Also expand: SW=Switch, SOC=Socket, BP=Bell Push, PLTE=Plate, REG=Regulator, IND=Indicator, MCB=Miniature Circuit Breaker, RCCB=Residual Current Circuit Breaker, 1W/2W=1Way/2Way.\n' +
     '- code: Product/part code if visible (numeric like 675513 or alphanumeric like EZ9F71106). Empty string if not visible.\n' +
     '- qty: Quantity as a number. Default to 1 if not stated.\n' +
     '- price: Unit price as number if shown. null otherwise.\n\n' +
@@ -2314,12 +2351,20 @@ async function handleQuotePhoto(e) {
   var SYNONYMS = [
     [/\bdouble[\s-]?pole\b/gi, 'dp'],
     [/\bdp\b/gi,               'double pole'],
+    [/\b2[\s-]?pole\b/gi,      'dp'],
+    [/\b2p\b/gi,               'double pole'],
     [/\bsingle[\s-]?pole\b/gi, 'sp'],
     [/\bsp\b/gi,               'single pole'],
+    [/\b1[\s-]?pole\b/gi,      'sp'],
+    [/\b1p\b/gi,               'single pole'],
     [/\btriple[\s-]?pole\b/gi, 'tp'],
     [/\btp\b/gi,               'triple pole'],
+    [/\b3[\s-]?pole\b/gi,      'tp'],
+    [/\b3p\b/gi,               'triple pole'],
     [/\bfour[\s-]?pole\b/gi,  'fp'],
     [/\bfp\b/gi,               'four pole'],
+    [/\b4[\s-]?pole\b/gi,      'fp'],
+    [/\b4p\b/gi,               'four pole'],
     [/\bmcb\b/gi,              'miniature circuit breaker'],
     [/\bminiature circuit breaker\b/gi, 'mcb'],
     [/\brccb\b/gi,             'residual current circuit breaker'],

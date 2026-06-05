@@ -576,8 +576,24 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
 // CONFIG
 // ================================================================
 var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx16uLQhIPphsI7WpCM6hxbVTxYUNlSJPxVHxxnJzPcx1z56agB7AEf_Un7tVjZ2MNa/exec';
-// Tried in order. Pro is best quality; Flash and 1.5-Pro are backups when Pro is busy/rate-limited.
-var GEMINI_MODELS = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-1.5-pro'];
+// Fallback chain: best quality first → cascade down on 429/5xx/404
+// Gemini 3.x tried first (newest, best quality), then 2.x as deep fallback so work never stops.
+// gemini-3.1-pro-preview      → highest quality
+// gemini-3.5-flash            → near-Pro, fast, GA
+// gemini-3-flash-preview      → solid mid-tier
+// gemini-3.1-flash-lite       → lightweight, high quota
+// gemini-2.5-pro-preview-06-05→ 2.x Pro backup
+// gemini-2.5-flash-preview-04-17 → 2.x Flash backup
+// gemini-2.0-flash            → last-resort, very high quota
+var GEMINI_MODELS = [
+  'gemini-3.1-pro-preview',
+  'gemini-3.5-flash',
+  'gemini-3-flash-preview',
+  'gemini-3.1-flash-lite',
+  'gemini-2.5-pro-preview-06-05',
+  'gemini-2.5-flash-preview-04-17',
+  'gemini-2.0-flash'
+];
 
 // ================================================================
 // SEED DATA (built-in items, used if no Sheet connected)
@@ -871,6 +887,35 @@ function init() {
       setSyncStatus('spin', 'syncing');
       fullSync().catch(function() { setSyncStatus('err', 'sheet unreachable'); });
     });
+  }
+
+  // Temporary test runner for mobile-first layout / image compression validation
+  if (typeof window !== 'undefined' && window.location && window.location.search.indexOf('test=1') >= 0) {
+    setTimeout(async function() {
+      console.log('--- TEST RUNNING ---');
+      var mockBlob = new Blob([new Uint8Array(1000 * 1000)], { type: 'image/jpeg' });
+      mockBlob.name = 'test.jpg';
+      var file = new File([mockBlob], 'test.jpg', { type: 'image/jpeg' });
+      localStorage.setItem('meq_gk_cache', 'AIzaSyTest_1234567890');
+      window.callGeminiWithFallback = async function() {
+        return {
+          json: async function() {
+            return {
+              candidates: [{
+                content: {
+                  parts: [{
+                    text: '[{"brand":"MYLINC","name":"6A 1WAY","code":"675501","qty":5,"price":112}]'
+                  }]
+                }
+              }]
+            };
+          }
+        };
+      };
+      var event = { target: { files: [file], value: '' } };
+      await handleQuotePhoto(event);
+      console.log('--- TEST FINISHED ---');
+    }, 1200);
   }
 }
 
@@ -2026,10 +2071,26 @@ async function handleQuotePhoto(e) {
 
   var base64, mimeType;
   try {
-    base64 = await fileToBase64(file);
+    var fileToProcess = file;
+    if (isImage) {
+      setSt('-', 'Compressing image...', 'Reducing file size for faster processing...', 15);
+      var sizeBefore = file.size;
+      fileToProcess = await compressImage(file, 1400, 1400, 0.82);
+      var sizeAfter = fileToProcess.size;
+      console.log('Image compression complete:', {
+        originalKB: Math.round(sizeBefore / 1024),
+        compressedKB: Math.round(sizeAfter / 1024),
+        ratio: Math.round((1 - sizeAfter / sizeBefore) * 100) + '%'
+      });
+    }
+    base64 = await fileToBase64(fileToProcess);
     // Normalise MIME type - browsers sometimes give image/jpg instead of image/jpeg
+    var procType = fileToProcess.type || '';
+    // After compressImage() the output is always a JPEG blob; use that directly.
+    // For uncompressed fallback (gif, webp, tiff etc) normalise image/jpg → image/jpeg.
     mimeType = isPDF ? 'application/pdf'
-             : (ftype === 'image/jpg' ? 'image/jpeg' : (ftype || 'image/jpeg'));
+             : (isImage ? 'image/jpeg'
+             : (procType === 'image/jpg' ? 'image/jpeg' : (procType || 'image/jpeg')));
   } catch(e) {
     showErr('Could Not Read File', [
       'The file could not be loaded: ' + e.message,
@@ -2065,8 +2126,9 @@ async function handleQuotePhoto(e) {
     '- price: Unit price as number if shown. null otherwise.\n\n' +
     'RULES:\n' +
     '1. Extract EVERY product row even if partially readable.\n' +
-    '2. Brand inheritance is important: a brand/range written at the top (for example "ALZY", "Legrand Alzy", "Lg Alzy") applies to all following rows until a new brand/range appears. If the last row says "MYLINC 2M plate", only that row is MYLINC; previous rows remain ALZY.\n' +
-    '3. Ditto marks, quotes, repeated dots, or blank brand/name cells mean repeat the previous brand or repeated word. Example: a quote under ALZY still means ALZY.\n' +
+    '2. HEADING BRAND INHERITANCE (critical): A brand written as a heading or at the top of a section applies to ALL rows that follow it, until a completely new non-indented heading brand appears. Example: heading is "SCHNIER" → every row below is brand=SCHNIER. A mid-section row that explicitly names a different brand (e.g. "Legrand 16A Switch") is the ONE exception — that specific row gets brand=Legrand, but every other row before and after (within the same heading block) remains SCHNIER. The heading brand is the default; explicit inline brand mentions are the only override, and only for that single row.\n' +
+    '3. Ditto marks, quotes, repeated dots, or blank brand/name cells mean repeat the previous brand or repeated word. Example: a quote under SCHNIER still means SCHNIER.\n' +
+    '3b. INDENTATION INHERITANCE (critical): if a brand/heading is written once at the LEFT MARGIN and the following rows are indented (start with spaces, a dash, or clearly shifted right), ALL indented rows inherit that margin brand. Example — heading "SCHNIER" at left margin, then indented rows "1W 6A", "2W 16A", "Legrand Socket", "32A DP" → output: brand=SCHNIER for 1W 6A; brand=SCHNIER for 2W 16A; brand=Legrand for Legrand Socket (explicit override, this row only); brand=SCHNIER for 32A DP (heading resumes). Stop inheriting the heading only when a new non-indented brand heading appears on its own line.\n' +
     '4. For module counts, keep the module as the item: "8 Module", "6 Module", "2 Module", "4 Module". Quantities like "10 nos", "20 nos", "7 nos" go into qty.\n' +
     '5. If a handwritten line has no quantity but has a price at the right after a dash, put that number in price and qty = 1.\n' +
     '6. If handwriting is unclear, best guess with (?) in name e.g. "16A Switch (?)".\n' +
@@ -2120,7 +2182,7 @@ async function handleQuotePhoto(e) {
       ]);
     } else if (err.type === 'timeout') {
       showErr('All AI Models Timed Out', [
-        'Tried Pro, Flash and 1.5-Pro - all took too long.',
+        'Tried 3.1 Pro, 3.5 Flash, 3 Flash and 3.1 Flash-Lite - all took too long.',
         'Try: smaller/simpler image, fewer items per photo, or check your internet.',
         'Large detailed photos take longer - try cropping to just the list.'
       ]);
@@ -2132,9 +2194,15 @@ async function handleQuotePhoto(e) {
       ]);
     } else if (err.status === 429) {
       showErr('Service Busy on All Models', [
-        'Tried Pro, Flash and 1.5-Pro - all rate-limited right now.',
+        'Tried 3.1 Pro, 3.5 Flash, 3 Flash and 3.1 Flash-Lite - all rate-limited right now.',
         'Wait a minute and try again.',
         'If this keeps happening, try again later.'
+      ]);
+    } else if (err.type === 'model-unavailable' || err.status === 404) {
+      showErr('AI Model Not Available', [
+        'All models returned 404 - they may have been renamed or deprecated.',
+        'Check your Gemini API key in Settings is still valid.',
+        'If the issue persists, please report it so the model list can be updated.'
       ]);
     } else {
       showErr('System Error (' + (err.status || '?') + ')', [
@@ -2205,7 +2273,7 @@ async function handleQuotePhoto(e) {
       var retryResp = await callGeminiWithFallback(key, {
         contents: [{ parts: [
           { inline_data: { mime_type: mimeType, data: base64 } },
-          { text: 'Extract ALL items from this image into a JSON array ONLY. Each object must have: brand (string, inherited from headings like ALZY until a new brand appears), name (string), code (string, empty if none), qty (number), price (number or null). Return ONLY the JSON array starting with [ and ending with ]. No other text.' }
+          { text: 'Extract ALL items from this image into a JSON array ONLY. Each object must have: brand (string — use the section heading brand for ALL rows in that section; if one row explicitly names a different brand, only that row gets that brand, the rest keep the heading brand), name (string), code (string, empty if none), qty (number), price (number or null). Return ONLY the JSON array starting with [ and ending with ]. No other text.' }
         ]}],
         generationConfig: { maxOutputTokens: 4000, temperature: 0 }
       }, { timeoutMs: 90000 });
@@ -2482,9 +2550,64 @@ function extractInvoiceRows(data) {
 }
 
 
-// ================================================================
-// SHARED GEMINI HELPERS
-// ================================================================
+// compressImage: resize to maxWidth/maxHeight, encode as JPEG at `quality`.
+// Two-pass safety net: if the first pass still produces a blob > 3 MB
+// (e.g. a huge phone photo only slightly over the dimension cap),
+// a second pass at half the linear size and lower quality is applied
+// to keep the payload small enough for Gemini to parse reliably.
+function compressImage(file, maxWidth, maxHeight, quality) {
+  return new Promise(function(resolve) {
+    if (!file || !file.type.startsWith('image/')) {
+      resolve(file);
+      return;
+    }
+    var img = new Image();
+    var url = URL.createObjectURL(file);
+    img.src = url;
+    img.onload = function() {
+      URL.revokeObjectURL(url);
+
+      function renderToBlob(w, h, q, cb) {
+        var canvas = document.createElement('canvas');
+        canvas.width  = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(function(blob) { cb(blob); }, 'image/jpeg', q);
+      }
+
+      var w = img.width, h = img.height;
+      if (w > maxWidth || h > maxHeight) {
+        var ratio = Math.min(maxWidth / w, maxHeight / h);
+        w = Math.round(w * ratio);
+        h = Math.round(h * ratio);
+      }
+
+      renderToBlob(w, h, quality, function(blob1) {
+        if (!blob1) { resolve(file); return; }
+
+        // Two-pass: if first result is still > 3 MB, shrink further
+        var LIMIT = 3 * 1024 * 1024;
+        if (blob1.size > LIMIT) {
+          var w2 = Math.round(w * 0.65);
+          var h2 = Math.round(h * 0.65);
+          renderToBlob(w2, h2, 0.65, function(blob2) {
+            var winner = (blob2 && blob2.size < blob1.size) ? blob2 : blob1;
+            winner.name = file.name;
+            resolve(winner);
+          });
+        } else {
+          blob1.name = file.name;
+          resolve(blob1);
+        }
+      });
+    };
+    img.onerror = function() {
+      URL.revokeObjectURL(url);
+      resolve(file);
+    };
+  });
+}
+
 function fileToBase64(file) {
   return new Promise(function(resolve, reject) {
     var reader = new FileReader();
@@ -2584,7 +2707,7 @@ function toggleVoiceInput(targetId, btnId) {
 
 // Calls Gemini with two layers of resilience:
 //   1. Per-model retry with backoff on 429/5xx/timeout/network (3 attempts, waits 0s, 3s, 8s)
-//   2. Model fallback: Pro -> Flash -> 1.5-Pro if all retries on a model fail or it returns 404
+//   2. Model fallback: 3.1 Pro -> 3.5 Flash -> 3 Flash -> 3.1 Flash-Lite if all retries on a model fail or it returns 404
 // Throws on permanent client errors (400/403/413) or when all models are exhausted.
 // On success, returns the Response with `_model` and `_fellBack` annotations.
 async function callGeminiWithFallback(key, body, opts) {

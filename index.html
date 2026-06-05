@@ -2008,9 +2008,8 @@ function importParsed() {
   var folder = (curFolder && curFolder !== 'all') ? curFolder : (folders.indexOf('legrand') >= 0 ? 'legrand' : folders.filter(function(f){return f!=='all';})[0] || 'all');
   var added = 0, updated = 0;
   parsedItems.forEach(function(d) {
-    // Match by code first, then by exact name
-    var dup = (d.code && DB.find(function(e) { return e.code && e.code.trim() === d.code.trim(); }))
-           || DB.find(function(e) { return e.name && e.name.trim().toLowerCase() === d.name.trim().toLowerCase(); });
+    // Match by code only — name is not unique (same item name repeats across different specs)
+    var dup = d.code ? DB.find(function(e) { return e.code && e.code.trim().toLowerCase() === d.code.trim().toLowerCase(); }) : null;
     if (dup) {
       if (d.price != null) dup.price = d.price;
       if (d.code)  dup.code  = d.code;

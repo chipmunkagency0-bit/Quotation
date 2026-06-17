@@ -273,20 +273,12 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
 <div class="modal" id="modal-settings">
   <div class="mbox">
     <div class="mtitle">Settings</div>
-    <div class="ctitle" style="margin-top:4px">Database</div>
-    <div class="fl" style="margin-bottom:8px">
-      <label>Supabase Project URL</label>
-      <input id="set-supa-url" type="text" placeholder="https://xxxx.supabase.co" autocomplete="off">
-    </div>
-    <div class="fl" style="margin-bottom:10px">
-      <label>Supabase Anon Key</label>
-      <input id="set-supa-key" type="password" placeholder="eyJxxx..." autocomplete="off">
-    </div>
-    <div id="set-conn-status" style="font-size:11px;margin-bottom:10px;display:none;padding:6px 10px;border-radius:5px;background:var(--sf2)"></div>
-    <div class="arow" style="margin-top:0;margin-bottom:16px">
-      <button class="btn btn-p btn-sm" onclick="connectSupabase()">Connect</button>
-    </div>
-    <div class="ctitle">AI (Gemini)</div>
+    <p style="font-size:11px;color:var(--mu);margin-bottom:14px">Enter your Gemini AI key once. It stays on this device.</p>
+    <!-- Supabase is hardcoded — hidden from users -->
+    <input id="set-supa-url" type="hidden" value="">
+    <input id="set-supa-key" type="hidden" value="">
+    <div id="set-conn-status" style="display:none"></div>
+    <div class="ctitle" style="margin-top:4px">AI (Gemini)</div>
     <div class="fl" style="margin-bottom:10px">
       <label>Gemini API Key</label>
       <input id="set-gem-key" type="password" placeholder="AIzaSy..." autocomplete="off">
@@ -296,7 +288,6 @@ td input[readonly]:focus{border-color:transparent;background:transparent}
       <button class="btn btn-p btn-sm" onclick="saveGemKey()">Save Key</button>
     </div>
     <div class="arow" style="margin-top:0">
-      <button class="btn btn-g btn-sm" onclick="openModal('modal-setup')">Setup Guide</button>
       <button class="btn btn-g btn-sm" onclick="closeModal('modal-settings')">Close</button>
     </div>
   </div>
@@ -1974,9 +1965,16 @@ function toggleVoiceInput(targetId,btnId){
 }
 
 // ====== INIT ======
+// Supabase is hardcoded — no setup needed for users
+var _SUPA_URL='https://dvfzfxhyirwnawggstot.supabase.co';
+var _SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2ZnpmeGh5aXJ3bmF3Z2dzdG90Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4NTAzNzEsImV4cCI6MjA5NjQyNjM3MX0.L2FG29Fhy61TITYUVf4_RCi4LWjRyhKift_3oYynVTk';
+
 function init(){
-  STATE.supaUrl=lsGet(LS.URL,'');
-  STATE.supaKey=lsGet(LS.KEY,'');
+  // Always use hardcoded Supabase — save to localStorage so supa() helper picks it up
+  STATE.supaUrl=_SUPA_URL;
+  STATE.supaKey=_SUPA_KEY;
+  lsSet(LS.URL,_SUPA_URL);
+  lsSet(LS.KEY,_SUPA_KEY);
   STATE.gemKey=lsGet(LS.GEM,'');
   STATE.db=lsGet(LS.DB,[]);
   STATE.hist=lsGet(LS.HIST,[]);
